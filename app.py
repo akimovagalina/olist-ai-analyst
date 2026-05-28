@@ -66,7 +66,7 @@ if st.button("🚀 Запустить расследование"):
                 system_prompt = f"You are a Senior SQL Developer. Your task is to write a valid SQLite query based on this database schema:\n{DATABASE_SCHEMA}\nReturn ONLY the raw SQL query. Do not wrap it in markdown code blocks, do not write any explanations or extra text."
                 
                 response = completion(
-                    model="groq/llama3-8b-8192",
+                    model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
@@ -89,7 +89,7 @@ if st.button("🚀 Запустить расследование"):
                 
                 # Отдаем полученные цифры модели, чтобы она красиво расписала выводы для директора
                 report_response = completion(
-                    model="groq/llama3-8b-8192",
+                    model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": "Ты Главный бизнес-аналитик маркетплейса. Твоя задача — взять сырую таблицу данных, проанализировать её и составить краткий executive summary СТРОГО НА РУССКОМ ЯЗЫКЕ. Формат отчета: 1. Суть проблемы (Главный инсайт), 2. Цифры и факты (Доказательства из таблицы с точными значениями), 3. Бизнес-рекомендация (Что делать руководству?)."},
                         {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные данные из базы:\n{result_df.to_string(index=False)}"}
