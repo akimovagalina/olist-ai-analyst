@@ -20,7 +20,6 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
 # =====================================================================
 DB_PATH = "olist.db"
-# Прямая ссылка на скачивание чистого бинарного файла olist.db из вашего релиза GitHub
 DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 # Если на прошлых шагах скачался сломанный файл HTML-страницы (меньше 1 МБ), удаляем его
@@ -107,7 +106,14 @@ if st.button("🚀 Запустить расследование"):
                     messages=messages,
                     temperature=0.1
                 )
-                generated_sql = response.choices.message.content.strip().replace("```sql", "").replace("```", "").strip()
+                
+                # Универсальное извлечение текста (совместимость с объектами и словарями)
+                if hasattr(response, 'choices') and hasattr(response.choices[0], 'message'):
+                    generated_sql = response.choices[0].message.content
+                else:
+                    generated_sql = response['choices'][0]['message']['content']
+                
+                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
                 try:
                     st.code(generated_sql, language="sql")
@@ -128,7 +134,13 @@ if st.button("🚀 Запустить расследование"):
                         messages=messages,
                         temperature=0.1
                     )
-                    generated_sql = response.choices.message.content.strip().replace("```sql", "").replace("```", "").strip()
+                    
+                    if hasattr(response, 'choices') and hasattr(response.choices[0], 'message'):
+                        generated_sql = response.choices[0].message.content
+                    else:
+                        generated_sql = response['choices'][0]['message']['content']
+                        
+                    generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                     
                     st.markdown("**Исправленный SQL-запрос:**")
                     st.code(generated_sql, language="sql")
@@ -148,7 +160,12 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.2
                 )
                 
-                final_report = report_response.choices.message.content
+                # Универсальное извлечение текста отчета
+                if hasattr(report_response, 'choices') and hasattr(report_response.choices[0], 'message'):
+                    final_report = report_response.choices[0].message.content
+                else:
+                    final_report = report_response['choices'][0]['message']['content']
+                    
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
                 # Выводим точную таблицу на экран
