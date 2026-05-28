@@ -3,8 +3,30 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 import asyncio
+import urllib.request  # Добавьте этот импорт для скачивания файла
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai.tools import tool
+
+# =====================================================================
+# АВТОМАШТАБИРОВАНИЕ: АВТОМАТИЧЕСКАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
+# =====================================================================
+DB_PATH = "olist.db"
+# Прямая ссылка на готовую и сжатую базу данных olist.db в репозитории
+DB_URL = "https://github.com" 
+# Примечание: Если вы решите залить базу в свой другой репозиторий или Dropbox, укажите ссылку здесь.
+# Для стабильности мы можем скачать оригинальный Olist файл (65MB) с проверенного CDN:
+DB_URL = "https://huggingface.co"
+
+if not os.path.exists(DB_PATH):
+    with st.spinner("📦 База данных Olist не найдена. Скачиваю датасет маркетплейса с облачного сервера (65 MB)..."):
+        try:
+            urllib.request.urlretrieve(DB_URL, DB_PATH)
+            st.success("✅ База данных успешно загружена и подключена!")
+        except Exception as e:
+            st.error(f"❌ Не удалось автоматически скачать базу данных: {e}")
+            st.info("Пожалуйста, убедитесь, что файл olist.db загружен вручную.")
+# =====================================================================
+
 
 # Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
