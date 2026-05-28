@@ -72,7 +72,13 @@ def sql_tool(sql_code: str) -> str:
 
 # Инициализация LLM с защитой от ошибок
 try:
-    gemini_llm = LLM(model="google/gemini-2.5-flash", temperature=0.1)
+    # Настраиваем Gemini с автоматическим ожиданием при перегрузках (Rate Limits)
+    gemini_llm = LLM(
+    model="google/gemini-2.5-flash", 
+    temperature=0.1,
+    max_retries=5  # Если Google скажет "подожди", модель сама сделает паузу и повторит запрос
+)
+
 except Exception:
     gemini_llm = None
 
