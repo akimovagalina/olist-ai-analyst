@@ -60,19 +60,37 @@ if st.button("🚀 Запустить расследование"):
     else:
         with st.status("🕵️‍♂️ ИИ-аналитик изучает хранилище данных...", expanded=True) as status:
             try:
-                st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
+                               st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
-                # Системный промпт, заставляющий модель выдать ТОЛЬКО чистый SQL-код
                 system_prompt = f"You are a Senior SQL Developer. Your task is to write a valid SQLite query based on this database schema:\n{DATABASE_SCHEMA}\nReturn ONLY the raw SQL query. Do not wrap it in markdown code blocks, do not write any explanations or extra text."
                 
-                response = completion(
-                    model="groq/llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
-                    ],
-                    temperature=0.1
-                )
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
+                ]
+                
+                # Попытка №1: Генерируем и пробуем выполнить код
+                response = completion(model="groq/llama-3.1-8b-instant", messages=messages, temperature=0.1)
+                generated_sql = response.choices.message.content.strip().replace("```sql", "").replace("```", "").strip()
+                
+                try:
+                    st.code(generated_sql, language="sql")
+                    result_df = run_sql_query(generated_sql)
+                except Exception as sql_error:
+                    st.warning("⚠️ Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
+                    
+                    # Добавляем в историю переписки ошибочный запрос и ответ базы данных
+                    messages.append({"role": "assistant", "content": generated_sql})
+                    messages.append({"role": "user", "content": f"Your previous SQL query failed with this error: {str(sql_error)}. Please analyze the database schema carefully, correct the table names or columns (ensure you JOIN order_payments_dataset if you need payment info), and provide the fixed SQLite query. Return ONLY the raw SQL."})
+                    
+                    # Попытка №2: Модель анализирует свою ошибку и исправляет код
+                    response = completion(model="groq/llama-3.1-8b-instant", messages=messages, temperature=0.1)
+                    generated_sql = response.choices.message.content.strip().replace("```sql", "").replace("```", "").strip()
+                    
+                    st.markdown("**Исправленный SQL-запрос:**")
+                    st.code(generated_sql, language="sql")
+                    result_df = run_sql_query(generated_sql)
+
                 
                 generated_sql = response.choices[0].message.content.strip()
                 # Очищаем от возможных кавычек маркдауна, если модель их все-таки добавила
