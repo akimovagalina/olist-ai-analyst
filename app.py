@@ -40,6 +40,7 @@ Table orders_dataset {
   order_id string [pk]
   customer_id string
   order_status string 
+  order_purchase_timestamp string
 }
 Table order_items_dataset { 
   order_id string 
