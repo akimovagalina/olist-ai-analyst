@@ -94,8 +94,17 @@ if st.button("🚀 Запустить расследование"):
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
                 # Системный промпт, заставляющий модель выдать ТОЛЬКО чистый SQL-код
-                system_prompt = f"You are a Senior SQL Developer. Your task is to write a valid SQLite query based on this database schema:\n{DATABASE_SCHEMA}\nReturn ONLY the raw SQL query. Do not wrap it in markdown code blocks, do not write any explanations or extra text."
-                
+                # Усиленный системный промпт с жестким ограничением диалекта SQLite
+                system_prompt = (
+                    f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this schema:\n{DATABASE_SCHEMA}\n\n"
+                    f"CRITICAL RULES:\n"
+                    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR FROM ...)' or 'EXTRACT(MONTH FROM ...)'.\n"
+                    f"2. To filter or group by dates/months/years in SQLite, ALWAYS use the 'strftime' function or 'LIKE' operator.\n"
+                    f"   Examples for November 2017:\n"
+                    f"   - WHERE order_purchase_timestamp LIKE '2017-11%'\n"
+                    f"   - WHERE strftime('%Y', order_purchase_timestamp) = '2017' AND strftime('%m', order_purchase_timestamp) = '11'\n"
+                    f"3. Return ONLY the raw SQL query. No markdown blocks, no explanations."
+                )                
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
