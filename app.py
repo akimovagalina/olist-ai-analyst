@@ -52,6 +52,12 @@ Table products_dataset { product_id string, product_category_name string }
 def run_sql_query(sql_code: str) -> str:
     try:
         conn = sqlite3.connect('olist.db')
+        # Ускоряем базу данных Olist: создаем индексы по ключевым полям связи
+        cursor = conn.cursor()
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_order_items_id ON order_items_dataset(order_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_review_order_id ON review_dataset(order_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_id ON order_items_dataset(product_id);")
+
         df = pd.read_sql_query(sql_code, conn)
         conn.close()
         if df.empty: return "Запрос выполнен, но данных не найдено."
