@@ -3,45 +3,35 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 import asyncio
-import urllib.request  # Добавьте этот импорт для скачивания файла
+import urllib.request
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai.tools import tool
-
-# =====================================================================
-# АВТОМАШТАБИРОВАНИЕ: АВТОМАТИЧЕСКАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
-# =====================================================================
-DB_PATH = "olist.db"
-# Прямая ссылка на готовую и сжатую базу данных olist.db в репозитории
-DB_URL = "https://github.com" 
-# Примечание: Если вы решите залить базу в свой другой репозиторий или Dropbox, укажите ссылку здесь.
-# Для стабильности мы можем скачать оригинальный Olist файл (65MB) с проверенного CDN:
-DB_URL = "https://huggingface.co"
-
-if not os.path.exists(DB_PATH):
-    with st.spinner("📦 База данных Olist не найдена. Скачиваю датасет маркетплейса с облачного сервера (65 MB)..."):
-        try:
-            urllib.request.urlretrieve(DB_URL, DB_PATH)
-            st.success("✅ База данных успешно загружена и подключена!")
-        except Exception as e:
-            st.error(f"❌ Не удалось автоматически скачать базу данных: {e}")
-            st.info("Пожалуйста, убедитесь, что файл olist.db загружен вручную.")
-# =====================================================================
-
 
 # Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
 st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
-st.subheader("Автономный сквозной аудит e-commerce данных с помощью Multi-Agent Crew & Gemini 2.5")
+st.subheader("Автономный сквозной аудит e-commerce данных с помощью Multi-Agent Crew & Groq / Llama 3")
 
-# Ввод API Ключа (можно зашить жестко или оставить ввод пользователю)
-# Безопасное чтение ключа из настроек окружения
-if "GEMINI_API_KEY" not in os.environ:
-    if "gemini" in st.secrets:
-        os.environ["GEMINI_API_KEY"] = st.secrets["gemini"]["api_key"]
+# Безопасное считывание API Ключа из Streamlit Secrets
+if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
+# =====================================================================
+# АВТОМАТИЧЕСКАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
+# =====================================================================
+DB_PATH = "olist.db"
+DB_URL = "https://huggingface.co"
 
-# Карта схемы базы данных
+if not os.path.exists(DB_PATH):
+    with st.spinner("📦 База данных Olist не найдена. Скачиваю датасет маркетплейса (65 MB)..."):
+        try:
+            urllib.request.urlretrieve(DB_URL, DB_PATH)
+            st.success("✅ База данных успешно загружена и подключена!")
+        except Exception as e:
+            st.error(f"❌ Не удалось автоматически скачать базу данных: {e}")
+
+# Карта схемы базы данных для ИИ
 DATABASE_SCHEMA = """
 Table orders_dataset { order_id string, customer_id string, order_status string }
 Table order_items_dataset { order_id string, order_item_id int, product_id string, seller_id string, price float }
@@ -51,85 +41,85 @@ Table products_dataset { product_id string, product_category_name string }
 
 def run_sql_query(sql_code: str) -> str:
     try:
-        conn = sqlite3.connect('olist.db')
-        # Ускоряем базу данных Olist: создаем индексы по ключевым полям связи
+        conn = sqlite3.connect(DB_PATH)
+        # Оптимизация: создаем индексы на лету для моментального выполнения JOIN
         cursor = conn.cursor()
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_order_items_id ON order_items_dataset(order_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_review_order_id ON review_dataset(order_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_id ON order_items_dataset(product_id);")
-
+        
         df = pd.read_sql_query(sql_code, conn)
         conn.close()
-        if df.empty: return "Запрос выполнен, но данных не найдено."
+        if df.empty: 
+            return "Query executed successfully, but no rows were returned."
         return df.head(10).to_string(index=False)
     except Exception as e:
-        return f"Ошибка SQL-синтаксиса: {str(e)}. Перепиши запрос."
+        return f"SQL Error: {str(e)}. Please rewrite your query."
 
 @tool("SQL Database Query Tool")
 def sql_tool(sql_code: str) -> str:
-    """Выполняет SQL-запрос к базе данных olist.db и возвращает результат в виде текста."""
+    """Executes a SQLite query against olist.db and returns the data as text. Input must be pure SQL text."""
     return run_sql_query(sql_code)
 
-# Инициализация LLM с защитой от ошибок
-try:
-    # Настраиваем Gemini с автоматическим ожиданием при перегрузках (Rate Limits)
-    gemini_llm = LLM(
-    model="google/gemini-2.5-flash", 
-    temperature=0.1,
-    max_retries=5  # Если Google скажет "подожди", модель сама сделает паузу и повторит запрос
+# Инициализация сверхбыстрой модели Groq Llama 3
+groq_llm = LLM(
+    model="groq/llama3-8b-8192", 
+    temperature=0.1
 )
 
-except Exception:
-    gemini_llm = None
-
-
-# Создание интерфейса ввода вопроса
-default_query = "Найди топ-5 категорий товаров, по которым клиенты чаще всего оставляют худшие отзывы (оценка 1), при условии, что товаров в этой категории было куплено больше 50 штук."
-user_query = st.text_area("✍️ Введите ваш бизнес-вопрос к базе Olist на человеческом языке:", value=default_query, height=100)
+# Интерфейс ввода вопроса
+default_query = "Find top 5 product categories with the highest number of worst reviews (review_score = 1), given that the category has more than 50 items sold in total."
+user_query = st.text_area("✍️ Введите ваш бизнес-вопрос к базе Olist (для стабильности ИИ рекомендуется вводить на английском):", value=default_query, height=100)
 
 if st.button("🚀 Запустить расследование"):
-    if not os.environ.get("GEMINI_API_KEY"):
-        st.error("Пожалуйста, укажите валидный GEMINI_API_KEY!")
+    if not os.environ.get("GROQ_API_KEY"):
+        st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
     else:
-        with st.status("🕵️‍♂️ Команда агентов приступила к работе...", expanded=True) as status:
+        with st.status("🕵️‍♂️ Команда агентов Groq приступила к работе...", expanded=True) as status:
             try:
-                st.write("🤖 Шаг 1: Сборка команды роботов и планирование...")
+                st.write("🤖 Шаг 1: Инициализация агентов...")
                 
-                # Добавляем параметр max_rpm=2, чтобы агенты не спамили запросами в API Google
                 sql_developer = Agent(
-                    role="Старший SQL-разработчик маркетплейса",
-                    goal="Писать точные SQL-запросы к базе olist.db для извлечения бизнес-данных.",
-                    backstory=f"Ты эксперт по SQLite. Пиши только чистый код без кавычек markdown. Схема:\n{DATABASE_SCHEMA}",
-                    tools=[sql_tool], llm=gemini_llm, max_rpm=2
+                    role="Senior SQL Developer",
+                    goal="Write precise SQL queries to extract business data from olist.db based on user questions.",
+                    backstory=f"You are a database expert. You write pure SQLite code. If a query fails, you rewrite it. Schema:\n{DATABASE_SCHEMA}",
+                    tools=[sql_tool], llm=groq_llm
                 )
 
                 business_analyst = Agent(
-                    role="Главный бизнес-аналитик Olist",
-                    goal="Изучать сырые таблицы данных и находить скрытые коммерческие проблемы маркетплейса.",
-                    backstory="Ты анализируешь цифры, ищешь аномалии и выявляешь причинно-следственные связи.",
-                    llm=gemini_llm, max_rpm=2
+                    role="Lead Business Analyst",
+                    goal="Analyze raw data tables to identify hidden operational or commercial issues.",
+                    backstory="You are a data interpreter. You look for anomalies, calculate aggregates, and find root causes.",
+                    llm=groq_llm
                 )
 
                 cmo_reporter = Agent(
-                    role="Директор по маркетингу маркетплейса",
-                    goal="Переводить сложную аналитику на понятный русский язык для топ-менеджмента Olist.",
-                    backstory="Ты готовишь емкие отчеты без «воды» на русском языке с четкими бизнес-рекомендациями.",
-                    llm=gemini_llm, max_rpm=2
+                    role="Chief Marketing Officer",
+                    goal="Translate complex analytical findings into a clean business summary for executive leadership.",
+                    backstory="You specialize in writing clear executive summaries. You must deliver the final report in RUSSIAN language.",
+                    llm=groq_llm
                 )
 
                 task_write_sql = Task(
-                    description="Посмотри на вопрос: '{user_question}'. Напиши и выполни SQL-запрос через инструмент 'SQL Database Query Tool'.",
-                    expected_output="Сырые текстовые таблицы из базы данных.", agent=sql_developer
+                    description="Look at the user request: '{user_question}'. Write and execute a SQL query using the 'SQL Database Query Tool' to fetch relevant data rows.",
+                    expected_output="Raw text tables from the database.", agent=sql_developer
                 )
 
                 task_analyze_data = Task(
-                    description="Изучи цифры из базы. Найди ключевые коммерческие аномалии и сделай выводы.",
-                    expected_output="Аналитический разбор найденных проблем.", agent=business_analyst
+                    description="Examine the numbers fetched by the SQL developer. Identify the key business anomalies, trends, or problematic metrics.",
+                    expected_output="An analytical breakdown of the data.", agent=business_analyst
                 )
 
                 task_write_report = Task(
-                    description="Оформи финальный отчет строго НА РУССКОМ ЯЗЫКЕ в формате: 1. Суть проблемы, 2. Цифры и факты, 3. Бизнес-рекомендация.",
-                    expected_output="Готовый Markdown отчет на русском языке.", agent=cmo_reporter
+                    description=(
+                        "Take the analyst's findings and format them as an executive summary for top management.\n"
+                        "CRITICAL: The final report MUST be written strictly in RUSSIAN language.\n"
+                        "Format requirements:\n"
+                        "1. Суть проблемы (Main Insight)\n"
+                        "2. Цифры и факты (Data Proofs с точными значениями из базы)\n"
+                        "3. Бизнес-рекомендация (Actionable Advice)"
+                    ),
+                    expected_output="A well-formatted Markdown executive summary completely written in RUSSIAN.", agent=cmo_reporter
                 )
 
                 crew = Crew(
@@ -138,17 +128,15 @@ if st.button("🚀 Запустить расследование"):
                     process=Process.sequential
                 )
                 
-                st.write("🔍 Шаг 2: Анализ данных и вычисление метрик...")
+                st.write("🔍 Шаг 2: Глубокое сканирование DWH маркетплейса...")
                 
-                # Запускаем универсальный асинхронный расчет
                 final_result = asyncio.run(crew.kickoff_async(inputs={"user_question": user_query}))
                 
-                status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
+                status.update(label="✅ Расследование успешно завершено!", state="complete", expanded=False)
                 
-                st.success("🎯 Результат расследования готов:")
+                st.success("🎯 Финальный аналитический отчет готов:")
                 st.markdown(final_result)
                 
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
-                st.error(f"Произошел технический сбой API ИИ: {e}")
-                st.info("💡 Совет: Бесплатный ключ Gemini API временно исчерпал лимит запросов в минуту (Rate Limit). Подождите 60 секунд и повторите отправку вопроса.")
+                st.error(f"Произошел технический сбой: {e}")
