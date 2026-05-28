@@ -95,25 +95,26 @@ if st.button("🚀 Запустить расследование"):
             try:
                 st.write("🤖 Шаг 1: Сборка команды роботов и планирование...")
                 
+                # Добавляем параметр max_rpm=2, чтобы агенты не спамили запросами в API Google
                 sql_developer = Agent(
                     role="Старший SQL-разработчик маркетплейса",
                     goal="Писать точные SQL-запросы к базе olist.db для извлечения бизнес-данных.",
                     backstory=f"Ты эксперт по SQLite. Пиши только чистый код без кавычек markdown. Схема:\n{DATABASE_SCHEMA}",
-                    tools=[sql_tool], llm=gemini_llm
+                    tools=[sql_tool], llm=gemini_llm, max_rpm=2
                 )
 
                 business_analyst = Agent(
                     role="Главный бизнес-аналитик Olist",
                     goal="Изучать сырые таблицы данных и находить скрытые коммерческие проблемы маркетплейса.",
                     backstory="Ты анализируешь цифры, ищешь аномалии и выявляешь причинно-следственные связи.",
-                    llm=gemini_llm
+                    llm=gemini_llm, max_rpm=2
                 )
 
                 cmo_reporter = Agent(
                     role="Директор по маркетингу маркетплейса",
                     goal="Переводить сложную аналитику на понятный русский язык для топ-менеджмента Olist.",
                     backstory="Ты готовишь емкие отчеты без «воды» на русском языке с четкими бизнес-рекомендациями.",
-                    llm=gemini_llm
+                    llm=gemini_llm, max_rpm=2
                 )
 
                 task_write_sql = Task(
@@ -139,6 +140,7 @@ if st.button("🚀 Запустить расследование"):
                 
                 st.write("🔍 Шаг 2: Анализ данных и вычисление метрик...")
                 
+                # Запускаем универсальный асинхронный расчет
                 final_result = asyncio.run(crew.kickoff_async(inputs={"user_question": user_query}))
                 
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
@@ -147,7 +149,6 @@ if st.button("🚀 Запустить расследование"):
                 st.markdown(final_result)
                 
             except Exception as e:
-                # Перехватываем ошибку 500/ServerError от перегруженного облака Google
-                status.update(label="❌ Сбой облачного сервера Google Gemini", state="error", expanded=False)
-                st.warning("⚠️ Внешнее API Gemini временно перегружено запросами. Включаю аварийный режим...")
-                st.info("💡 Техническая заметка для портфолио: В промышленной архитектуре здесь срабатывает автоматическое переключение (Fallback) на резервный контур Groq/Llama-3 или выдача закэшированного dbt-отчета.")
+                status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
+                st.error(f"Произошел технический сбой API ИИ: {e}")
+                st.info("💡 Совет: Бесплатный ключ Gemini API временно исчерпал лимит запросов в минуту (Rate Limit). Подождите 60 секунд и повторите отправку вопроса.")
