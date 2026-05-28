@@ -19,7 +19,7 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # АВТОМАТИЧЕСКАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://huggingface.co"
+DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 if not os.path.exists(DB_PATH):
     with st.spinner("📦 База данных Olist не найдена. Скачиваю датасет маркетплейса (65 MB)..."):
