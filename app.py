@@ -13,7 +13,11 @@ st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Ма
 st.subheader("Автономный сквозной аудит e-commerce данных с помощью Multi-Agent Crew & Gemini 2.5")
 
 # Ввод API Ключа (можно зашить жестко или оставить ввод пользователю)
-os.environ["GEMINI_API_KEY"] = "AQ.Ab8RN6K0lyNhSpWNgGTQcmuaHZ8K_JgHXU6h1Fb8WCZp8lSNyw"
+o# Безопасное чтение ключа из настроек окружения
+if "GEMINI_API_KEY" not in os.environ:
+    if "gemini" in st.secrets:
+        os.environ["GEMINI_API_KEY"] = st.secrets["gemini"]["api_key"]
+
 
 # Карта схемы базы данных
 DATABASE_SCHEMA = """
