@@ -61,11 +61,13 @@ def sql_tool(sql_code: str) -> str:
     """Executes a SQLite query against olist.db and returns the data as text. Input must be pure SQL text."""
     return run_sql_query(sql_code)
 
-# Инициализация сверхбыстрой модели Groq Llama 3
+# Инициализация сверхбыстрой модели Groq Llama 3 с отключением несовместимого кэша
 groq_llm = LLM(
     model="groq/llama3-8b-8192", 
-    temperature=0.1
+    temperature=0.1,
+    cache=False  # Принудительно отключаем внутреннее кэширование CrewAI для обхода бага Groq
 )
+
 
 # Интерфейс ввода вопроса
 default_query = "Find top 5 product categories with the highest number of worst reviews (review_score = 1), given that the category has more than 50 items sold in total."
