@@ -147,7 +147,6 @@ if st.button("🚀 Запустить расследование"):
                     except Exception as sql_error:
                         if attempts == max_attempts:
                             st.warning("🔄 Включен инженерный режим восстановления SQL-запроса...")
-                            # Если API постоянно обрезает код, подставляем чистый, эталонный, неубиваемый запрос для SQLite
                             generated_sql = (
                                 "SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, "
                                 "SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders "
@@ -162,13 +161,14 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                        messages.append({"role": "assistant", "content": generated_sql})
-                        messages.append({
-                            "role": "user", 
-                            "content": f"Your previous SQL query failed with error: {str(sql_error)}. Please write a clean, complete SQLite query. "
-                                       f"Example blueprint: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(price) AS total_sales FROM order_items_dataset oi JOIN orders_dataset o ON oi.order_id = o.order_id WHERE order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1; "
-                                       f"Return ONLY pure SQL text. Ensure the statement finishes completely and is never cut short."
-                        })
+                        # ОПТИМИЗАЦИЯ ПАМЯТИ: Полностью очищаем историю, чтобы сбросить лимит TPM
+                        messages = [
+                            {"role": "system", "content": sql_system_prompt},
+                            {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
+                                                       f"Please write a clean, complete SQLite query. "
+                                                       f"Blueprint: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(price) AS total_sales FROM order_items_dataset oi JOIN orders_dataset o ON oi.order_id = o.order_id WHERE order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1; "
+                                                       f"Return ONLY pure SQL text. Ensure the statement finishes completely and is never cut short."}
+                        ]
                         
                         response = completion(
                             model="groq/llama-3.1-8b-instant",
