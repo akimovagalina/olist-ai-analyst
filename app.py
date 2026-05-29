@@ -90,9 +90,9 @@ if st.button("🚀 Запустить расследование"):
     if not os.environ.get("GROQ_API_KEY"):
         st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
     else:
-        with st.status("🕵️‍♂️ ИИ-аналитик изучает хранилище данных маркетплейса...", expanded=True) as status:
+        with st.status(" ИИ-аналитик изучает хранилище данных маркетплейса...", expanded=True) as status:
             try:
-                st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
+                st.write(" Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
                 # 1. СИСТЕМНЫЙ ПРОМПТ РАЗРАБОТЧИКА С ЖЕСТКИМ ОГРАНИЧЕНИЕМ ДИАЛЕКТА SQLite
                 sql_system_prompt = (
@@ -164,9 +164,9 @@ if st.button("🚀 Запустить расследование"):
                     st.code(generated_sql, language="sql")
                     result_df = run_sql_query(generated_sql)
                 
-                st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
+                st.write(" Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 
-                st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
+                st.write(" Шаг 3: Формирование аналитического отчета на русском языке...")
                 
                 # 2. СИСТЕМНЫЙ ПРОМПТ АНАЛИТИКА С ЗАЩИТОЙ ОТ МАНИПУЛЯЦИЙ И КРИТИЧЕСКИМ МЫШЛЕНИЕМ
                 analyst_system_prompt = (
@@ -204,11 +204,11 @@ if st.button("🚀 Запустить расследование"):
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
                 # Выводим точную таблицу на экран
-                st.success("📊 Точные цифры из базы данных маркетплейса Olist:")
+                st.success(" Точные цифры из базы данных маркетплейса Olist:")
                 st.dataframe(result_df, use_container_width=True)
                 
                 # Выводим текстовый отчет
-                st.subheader("🎯 Финальный бизнес-отчет аналитика:")
+                st.subheader(" Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
                 
             except Exception as e:
