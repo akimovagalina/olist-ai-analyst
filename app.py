@@ -86,7 +86,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
 default_query = "Find out why sales fell in November 2017?"
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
 
-if st.button("🚀 Запустить расследование"):
+if st.button(" Запустить расследование"):
     if not os.environ.get("GROQ_API_KEY"):
         st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
     else:
@@ -138,7 +138,7 @@ if st.button("🚀 Запустить расследование"):
                     st.code(generated_sql, language="sql")
                     result_df = run_sql_query(generated_sql)
                 except Exception as sql_error:
-                    st.warning("⚠️ Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
+                    st.warning("Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
                     messages.append({"role": "assistant", "content": generated_sql})
                     messages.append({
                         "role": "user", 
@@ -201,10 +201,10 @@ if st.button("🚀 Запустить расследование"):
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
-                st.success("📊 Исторические данные из базы данных маркетплейса Olist для контекст-анализа:")
+                st.success("Исторические данные из базы данных маркетплейса Olist для контекст-анализа:")
                 st.dataframe(result_df, use_container_width=True)
                 
-                st.subheader("🎯 Финальный бизнес-отчет аналитика:")
+                st.subheader("Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
                 
             except Exception as e:
