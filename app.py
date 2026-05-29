@@ -171,14 +171,13 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.1
                 )
                 
-                # ИМПОРТИРУЕМ РЕГУЛЯРНЫЕ ВЫРАЖЕНИЯ НА ЛЕТУ ДЛЯ БЕЗОПАСНОСТИ
-                import re
                 res_str = str(response)
-                
-                # Ищем текст внутри content="..." с помощью regex
-                content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
-                if content_match:
-                    generated_sql = content_match.group(1).replace("\\n", "\n")
+                if "content=" in res_str:
+                    try:
+                        generated_sql = res_str.split("content=").split(", role=").strip("'\"")
+                        generated_sql = generated_sql.replace("\\n", "\n")
+                    except Exception:
+                        generated_sql = res_str
                 else:
                     if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
                         generated_sql = response.choices.message.content
@@ -211,12 +210,13 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                        # Передаем в историю чистый текст без метаданных
                         messages.append({"role": "assistant", "content": generated_sql})
                         messages.append({
                             "role": "user", 
                             "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
-                                       f"Please write a clean SQLite query: SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders FROM orders_dataset o JOIN order_items_dataset oi ON o.order_id = oi.order_id WHERE sales_month BETWEEN '2017-08' AND '2017-12' GROUP BY sales_month ORDER BY sales_month; Return ONLY pure SQL text without object wrappers."
+                                       f"Please carefully check the 9-table schema mapping: "
+                                       f"Note that 'order_item_id' lives ONLY in 'order_items_dataset', not in 'products_dataset'. "
+                                       f"Fix the aliases and columns, and rewrite a clean SQLite query. Return ONLY pure SQL code text."
                         })
                         
                         response = completion(
@@ -225,11 +225,9 @@ if st.button("🚀 Запустить расследование"):
                             temperature=0.1
                         )
                         
-                        # ПРИМЕНЯЕМ НАДЕЖНЫЙ REGEX ДЛЯ ПОВТОРНОЙ ПОПЫТКИ
                         res_str = str(response)
-                        content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
-                        if content_match:
-                            generated_sql = content_match.group(1).replace("\\n", "\n")
+                        if "content=" in res_str:
+                            generated_sql = res_str.split("content=").split(", role=").strip("'\"").replace("\\n", "\n")
                         else:
                             if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
                                 generated_sql = response.choices.message.content
@@ -244,14 +242,13 @@ if st.button("🚀 Запустить расследование"):
                 
                 # УНИВЕРСАЛЬНЫЙ ПРОМПТ АНАЛИТИКА ПОД ВСЕ ИЗМЕРЕНИЯ БИЗНЕСА
                 analyst_system_prompt = (
-                    "Ты Ведущий продуктовый аналитик маркетплейса Olist с глубоким пониманием ритейл-календаря. Твоя задача — провести глубокий сравнительный аудит данных и составить отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
-                    "МЕТОДОЛОГИЯ АНАЛИЗА ДЛЯ ПОРТФОЛИО:\n"
-                    "1. СРАВНИТЕЛЬНЫЙ АНАЛИЗ (MoM / YoY): Внимательно изучи всю временную шкалу в полученной таблице. Сравни целевой месяц (ноябрь 2017) с предыдущими месяцами (сентябрь, октябрь) и последующими (декабрь). Определи реальный математический тренд выручки.\n"
-                    "2. КРИТИКА ГИПОТЕЗЫ ПОЛЬЗОВАТЕЛЯ: Если в вопросе утверждается, что продажи упали, но на основе цифр ты видишь взрывной рост в ноябре по сравнению с сентябрем/октябрем — прямо опровергни пользователя. Напиши: 'Внимание: гипотеза о падении продаж полностью опровергнута цифрами DWH. Продажи в ноябре показали рекордный исторический пик!'.\n"
-                    "3. ГЕНЕРАЦИЯ БИЗНЕС-ГИПОТЕЗ: Объясни, почему произошел такой аномальный скачок выручки в ноябре (сезонность, Черная пятница, предновогодний бум закупок) без прямых подсказок в коде.\n"
-                    "4. СТРУКТУРА ОТЧЕТА:\n"
-                    "   - 1. Главный инсайт и Опровержение тренда (Анализ динамики соседних месяцев)\n"
-                    "   - 2. Цифры и факты (Точные значения выручки по месяцам из таблицы для доказательства)\n"
+                    "Ты Главный бизнес-аналитик маркетплейса Olist. Твоя задача — провести глубокий аудит данных и составить отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
+                    "МЕТОДОЛОГИЯ АВТОНОМНОГО АНАЛИЗА:\n"
+                    "1. ДИНАМИЧЕСКИЙ ОХВАТ: Определи контекст данных. Если в таблице города/штаты — делай глубокий географический разбор (где ядро клиентов, где дефицит). Если там даты — делай MoM/YoY анализ трендов. Если категории — анализируй структуру продаж.\n"
+                    "2. КРИТИКА И ГИПОТЕЗЫ: Внимательно сопоставляй вопрос бизнеса с полученными цифрами. Опровергай ложные гипотезы пользователя, если они противоречат математическим фактам. Выдвигай сильные коммерческие гипотезы о скрытых причинах такого распределения.\n"
+                    "3. СТРУКТУРА ОТЧЕТА:\n"
+                    "   - 1. Главный инсайт исследования (Реальное положение дел из цифр)\n"
+                    "   - 2. Цифры и факты (Точные значения, лидеры и аутсайдеры из таблицы для доказательства)\n"
                     "   - 3. Аналитические гипотезы (Какие факторы определяют этот тренд)\n"
                     "   - 4. Бизнес-рекомендация (Конкретные шаги для руководства маркетплейса)"
                 )
@@ -265,11 +262,9 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.2
                 )
                 
-                # ПРИМЕНЯЕМ REGEX ДЛЯ ИЗВЛЕЧЕНИЯ ФИНАЛЬНОГО ОТЧЕТА
                 res_report_str = str(report_response)
-                content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_report_str)
-                if content_match:
-                    final_report = content_match.group(1).replace("\\n", "\n")
+                if "content=" in res_report_str:
+                    final_report = res_report_str.split("content=").split(", role=").strip("'\"").replace("\\n", "\n")
                 else:
                     if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
                         final_report = report_response.choices.message.content
