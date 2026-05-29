@@ -10,7 +10,7 @@ from litellm import completion
 # Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
-st.title("AI-Агент: Цифровой Детектив Маркетплейса Olist")
+st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
 # Безопасное считывание API Ключа из Streamlit Secrets
@@ -21,10 +21,10 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ПОЛНОЙ БАЗЫ ДАННЫХ
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+DB_URL = "https://r2.dev"
 
-
-if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 8000000:
+# Если файл весит меньше 80 МБ (значит, это старая урезанная база), принудительно удаляем её
+if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
@@ -33,14 +33,11 @@ if not os.path.exists(DB_PATH):
             ssl_context = ssl._create_unverified_context()
             with urllib.request.urlopen(DB_URL, context=ssl_context) as response, open(DB_PATH, 'wb') as out_file:
                 out_file.write(response.read())
-            st.success("✅ Все 9 таблиц базы данных успешно загружены и подключена!")
-            
+            st.success("✅ Все 9 таблиц базы данных успешно загружены и подключены!")
         except Exception as e:
             st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
-# =====================================================================
-# ПОЛНАЯ СХЕМА ВСЕХ 9 ТАБЛИЦ СТРУКТУРЫ OLIST ДЛЯ ИИ
-# =====================================================================
+# Карта схемы базы данных для ИИ
 DATABASE_SCHEMA = """
 Table customers_dataset {
   customer_id string [pk] -> Перекрестная ссылка к orders_dataset
@@ -122,7 +119,6 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # Индексируем ключи связи для мгновенного выполнения JOIN
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_id ON customers_dataset(customer_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_zip ON customers_dataset(customer_zip_code_prefix);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_geo_zip ON geolocation_dataset(geolocation_zip_code_prefix);")
@@ -139,15 +135,16 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     df = pd.read_sql_query(sql_code, conn)
     conn.close()
     return df
+
 # Интерфейс ввода вопроса
-default_query = "Define the geographic distribution of customers by states. Show the top 5 states with the highest total sales volume and count of unique customers."
+default_query = "Find out why sales fell in November 2017 using order_purchase_timestamp column."
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
 
 if st.button("🚀 Запустить расследование"):
     if not os.environ.get("GROQ_API_KEY"):
         st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
     else:
-        with st.status("🕵️‍♂️ ИИ-аналитик изучает полную инфраструктуру DWH...", expanded=True) as status:
+        with st.status("🕵️‍♂️ ИИ-аналитик изучает хранилище данных маркетплейса...", expanded=True) as status:
             try:
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
@@ -155,10 +152,11 @@ if st.button("🚀 Запустить расследование"):
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. GEOGRAPHY ANALYSIS: When asked about geographic distribution of customers, use columns like `customer_state` or `customer_city` from `customers_dataset` and JOIN them with sales figures from `order_items_dataset` or `order_payments_dataset` via `orders_dataset`.\n"
-                    f"3. TRANSLATIONS: When categories are involved, always JOIN `product_category_name_translation` to display `product_category_name_english` instead of Portuguese names.\n"
-                    f"4. Make sure every aggregated or constructed column in SELECT is correct and matched in GROUP BY or ORDER BY.\n"
-                    f"5. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers like ModelResponse."
+                    f"2. METHODOLOGY: To understand why sales changed in a specific month, you MUST fetch a broader timeline for context. "
+                    f"   Generate a query that extracts monthly aggregates (SUM(price) AS total_sales, COUNT(DISTINCT order_id) AS num_orders) covering at least 3-4 months surrounding the target period (e.g., 2017-09, 2017-10, 2017-11, 2017-12) "
+                    f"   using `SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month` so the analyst can perform MoM (Month-over-Month) analysis.\n"
+                    f"3. Make sure every aggregated or constructed column in SELECT is correct and matched in GROUP BY or ORDER BY.\n"
+                    f"4. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers like ModelResponse."
                 )
                 
                 messages = [
@@ -172,11 +170,10 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.1
                 )
                 
-                # Извлекаем чистый текст из потока ModelResponse
                 res_str = str(response)
                 if "content=" in res_str:
                     try:
-                        generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
+                        generated_sql = res_str.split("content=").split(", role=").strip("'\"")
                         generated_sql = generated_sql.replace("\\n", "\n")
                     except Exception:
                         generated_sql = res_str
@@ -184,40 +181,60 @@ if st.button("🚀 Запустить расследование"):
                     if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
                         generated_sql = response.choices.message.content
                     else:
-                        generated_sql = response['choices'][0]['message']['content']
+                        generated_sql = response['choices']['message']['content']
                 
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
-                try:
-                    st.code(generated_sql, language="sql")
-                    result_df = run_sql_query(generated_sql)
-                except Exception as sql_error:
-                    st.warning("⚠️ Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
-                    messages.append({"role": "assistant", "content": generated_sql})
-                    messages.append({
-                        "role": "user", 
-                        "content": f"Your query failed with error: {str(sql_error)}. Please rewrite a clean SQLite query matching the 9-table schema correctly. Ensure all selected dimension columns are correct. Return ONLY pure SQL code."
-                    })
-                    
-                    response = completion(
-                        model="groq/llama-3.1-8b-instant",
-                        messages=messages,
-                        temperature=0.1
-                    )
-                    
-                    res_str = str(response)
-                    if "content=" in res_str:
-                        generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"").replace("\\n", "\n")
-                    else:
-                        if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                            generated_sql = response.choices.message.content
+                # =====================================================================
+                # МНОГОШАГОВЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
+                # =====================================================================
+                attempts = 0
+                max_attempts = 3
+                sql_success = False
+                
+                while attempts < max_attempts and not sql_success:
+                    attempts += 1
+                    try:
+                        if attempts == 1:
+                            st.code(generated_sql, language="sql")
                         else:
-                            generated_sql = response['choices'][0]['message']['content']
+                            st.markdown(f"**🔄 Попытка самоисправления №{attempts-1}:**")
+                            st.code(generated_sql, language="sql")
+                            
+                        result_df = run_sql_query(generated_sql)
+                        sql_success = True
+                    except Exception as sql_error:
+                        if attempts == max_attempts:
+                            raise sql_error
+                            
+                        st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                    generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
-                    st.markdown("**Исправленный SQL-запрос:**")
-                    st.code(generated_sql, language="sql")
-                    result_df = run_sql_query(generated_sql)
+                        messages.append({"role": "assistant", "content": generated_sql})
+                        messages.append({
+                            "role": "user", 
+                            "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
+                                       f"Please carefully check the 9-table schema mapping: "
+                                       f"Note that 'order_item_id' lives ONLY in 'order_items_dataset', not in 'products_dataset'. "
+                                       f"Fix the aliases and columns, and rewrite a clean SQLite query. Return ONLY pure SQL code text."
+                        })
+                        
+                        response = completion(
+                            model="groq/llama-3.1-8b-instant",
+                            messages=messages,
+                            temperature=0.1
+                        )
+                        
+                        res_str = str(response)
+                        if "content=" in res_str:
+                            generated_sql = res_str.split("content=").split(", role=").strip("'\"").replace("\\n", "\n")
+                        else:
+                            if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                                generated_sql = response.choices.message.content
+                            else:
+                                generated_sql = response['choices']['message']['content']
+                            
+                        generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+                # =====================================================================
                 
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
@@ -246,12 +263,12 @@ if st.button("🚀 Запустить расследование"):
                 
                 res_report_str = str(report_response)
                 if "content=" in res_report_str:
-                    final_report = res_report_str.split("content=")[1].split(", role=")[0].strip("'\"").replace("\\n", "\n")
+                    final_report = res_report_str.split("content=").split(", role=").strip("'\"").replace("\\n", "\n")
                 else:
                     if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
                         final_report = report_response.choices.message.content
                     else:
-                        final_report = report_response['choices'][0]['message']['content']
+                        final_report = report_response['choices']['message']['content']
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
