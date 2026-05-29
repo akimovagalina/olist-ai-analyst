@@ -130,15 +130,17 @@ if st.button("🚀 Запустить расследование"):
                 
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
-                try:
+                                try:
                     st.code(generated_sql, language="sql")
                     result_df = run_sql_query(generated_sql)
                 except Exception as sql_error:
                     st.warning("⚠️ Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
+                    
+                    # Передаем в историю чистый текст без метаданных
                     messages.append({"role": "assistant", "content": generated_sql})
                     messages.append({
                         "role": "user", 
-                        "content": f"Your query failed: {str(sql_error)}. Write a clean SQLite query that aggregates sales revenue by months using SUBSTR(order_purchase_timestamp, 1, 7) as sales_month for the entire year of 2017 to provide full context. Return ONLY pure SQL."
+                        "content": f"Your previous SQL query failed with this error: {str(sql_error)}. Please write a clean SQLite query that aggregates sales revenue by months using SUBSTR(order_purchase_timestamp, 1, 7) as sales_month for the entire year of 2017 to provide full context. IMPORTANT: Return ONLY pure, raw SQL code. Do not return any object wrappers like ModelResponse, do not wrap it in markdown block."
                     })
                     
                     response = completion(
@@ -147,24 +149,28 @@ if st.button("🚀 Запустить расследование"):
                         temperature=0.1
                     )
                     
-                    # УНИВЕРСАЛЬНЫЙ ПАРСЕР ДЛЯ ПОВТОРНОЙ ПОПЫТКИ ШАГА 1
-                    try:
-                        if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                            generated_sql = response.choices.message.content
-                        elif isinstance(response, list):
-                            generated_sql = response[0]['message']['content']
+                    # СВЕРХНАДЕЖНЫЙ ПАРСЕР ДЛЯ ПОВТОРНОЙ ПОПЫТКИ
+                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                        generated_sql = response.choices.message.content
+                    elif hasattr(response, 'choices') and isinstance(response.choices, list) and len(response.choices) > 0:
+                        generated_sql = response.choices[0].message.content
+                    elif isinstance(response, dict) and 'choices' in response:
+                        generated_sql = response['choices'][0]['message']['content']
+                    else:
+                        res_str = str(response)
+                        if "content=" in res_str:
+                            generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
                         else:
-                            generated_sql = response['choices']['message']['content']
-                    except Exception:
-                        generated_sql = str(response)
+                            generated_sql = res_str
                         
                     generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+                    
                     st.markdown("**Исправленный SQL-запрос:**")
                     st.code(generated_sql, language="sql")
                     result_df = run_sql_query(generated_sql)
                 
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
-                st.write("✍ {🖨️} Шаг 3: Формирование аналитического отчета на русском языке...")
+                st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
                 # МЕТОДОЛОГИЧЕСКИЙ ПРОМПТ АНАЛИТИКА: Требуем глубокого сравнительного анализа и генерации гипотез
                 analyst_system_prompt = (
@@ -189,16 +195,19 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.2
                 )
                 
-                # УНИВЕРСАЛЬНЫЙ ПАРСЕР ОТВЕТА ИИ ДЛЯ ШАГА 3 (Защита от 'list indices' ошибок)
-                try:
-                    if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
-                        final_report = report_response.choices.message.content
-                    elif isinstance(report_response, list):
-                        final_report = report_response[0]['message']['content']
+                # Универсальное извлечение текста отчета
+                if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
+                    final_report = report_response.choices.message.content
+                elif hasattr(report_response, 'choices') and isinstance(report_response.choices, list) and len(report_response.choices) > 0:
+                    final_report = report_response.choices[0].message.content
+                elif isinstance(report_response, dict) and 'choices' in report_response:
+                    final_report = report_response['choices'][0]['message']['content']
+                else:
+                    res_str = str(report_response)
+                    if "content=" in res_str:
+                        final_report = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
                     else:
-                        final_report = report_response['choices']['message']['content']
-                except Exception:
-                    final_report = str(report_response)
+                        final_report = res_str
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
