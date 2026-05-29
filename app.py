@@ -118,13 +118,20 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.1
                 )
                 
-                # Универсальное извлечение текста (совместимость с объектами и словарями)
-                if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                    generated_sql = response.choices.message.content
-                else:
-                    generated_sql = response['choices']['message']['content']
+                # СВЕРХНАДЕЖНОЕ ИЗВЛЕЧЕНИЕ SQL-КОДА
+                try:
+                    if hasattr(response, 'choices'):
+                        generated_sql = response.choices[0].message.content
+                    elif isinstance(response, list):
+                        generated_sql = response[0]['choices'][0]['message']['content']
+                    else:
+                        generated_sql = response['choices'][0]['message']['content']
+                except Exception:
+                    # Если структура совсем нестандартная, берем как сырой текст
+                    generated_sql = str(response)
                 
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+
                 
                 try:
                     st.code(generated_sql, language="sql")
@@ -182,11 +189,17 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.2
                 )
                 
-                # Универсальное извлечение текста отчета
-                if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
-                    final_report = report_response.choices.message.content
-                else:
-                    final_report = report_response['choices']['message']['content']
+                # СВЕРХНАДЕЖНОЕ ИЗВЛЕЧЕНИЕ ТЕКСТА ОТЧЕТА
+                try:
+                    if hasattr(report_response, 'choices'):
+                        final_report = report_response.choices[0].message.content
+                    elif isinstance(report_response, list):
+                        final_report = report_response[0]['choices'][0]['message']['content']
+                    else:
+                        final_report = report_response['choices'][0]['message']['content']
+                except Exception:
+                    final_report = str(report_response)
+
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
