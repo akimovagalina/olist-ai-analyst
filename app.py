@@ -9,7 +9,7 @@ from litellm import completion
 # Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
-st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
+st.title(" AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Высокоскоростной ad-hoc аудит e-commerce данных с системой самоисправления SQL")
 
 # Безопасное считывание API Ключа из Streamlit Secrets
@@ -183,7 +183,7 @@ if st.button("🚀 Запустить расследование"):
                 st.dataframe(result_df, use_container_width=True)
                 
                 # Выводим текстовый отчет
-                st.subheader("🎯 Финальный бизнес-отчет аналитика:")
+                st.subheader(" Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
                 
             except Exception as e:
