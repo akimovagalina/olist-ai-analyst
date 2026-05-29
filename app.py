@@ -10,7 +10,7 @@ from litellm import completion
 # Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
-st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
+st.title("AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
 # Безопасное считывание API Ключа из Streamlit Secrets
@@ -24,7 +24,7 @@ DB_PATH = "olist.db"
 DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 
-if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 5000000:
+if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 8000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
@@ -34,6 +34,7 @@ if not os.path.exists(DB_PATH):
             with urllib.request.urlopen(DB_URL, context=ssl_context) as response, open(DB_PATH, 'wb') as out_file:
                 out_file.write(response.read())
             st.success("✅ Все 9 таблиц базы данных успешно загружены и подключена!")
+            
         except Exception as e:
             st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
