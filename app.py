@@ -154,12 +154,16 @@ if st.button("🚀 Запустить расследование"):
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. METHODOLOGY: To understand why sales changed in a specific month, you MUST fetch a broader timeline for context. "
-                    f"   Generate a query that extracts monthly aggregates (SUM(price) AS total_sales, COUNT(DISTINCT order_id) AS num_orders) covering at least 3-4 months surrounding the target period (e.g., 2017-09, 2017-10, 2017-11, 2017-12) "
-                    f"   using `SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month` so the analyst can perform MoM (Month-over-Month) analysis.\n"
-                    f"3. Make sure every aggregated or constructed column in SELECT is correct and matched in GROUP BY or ORDER BY.\n"
-                    f"4. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers like ModelResponse."
+                    f"2. KEEP IT SIMPLE: Write the shortest possible query. Do not use SUM(CASE WHEN...) or complex subqueries.\n"
+                    f"3. METHODOLOGY: To show sales trends around November 2017, aggregate metrics strictly like this:\n"
+                    f"   SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, SUM(oi.price) AS total_sales \n"
+                    f"   FROM orders_dataset o \n"
+                    f"   JOIN order_items_dataset oi ON o.order_id = oi.order_id \n"
+                    f"   WHERE o.order_purchase_timestamp LIKE '2017%' \n"
+                    f"   GROUP BY 1 ORDER BY 1;\n"
+                    f"4. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers."
                 )
+
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
