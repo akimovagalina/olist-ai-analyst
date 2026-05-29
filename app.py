@@ -24,7 +24,7 @@ DB_PATH = "olist.db"
 DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 
-if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 1000000:
+if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 5000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
