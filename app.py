@@ -10,143 +10,135 @@ from litellm import completion
 # Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
-st.title(" AI-Агент: Цифровой Детектив Маркетплейса Olist")
-st.subheader("Высокоскоростной ad-hoc аудит e-commerce данных с системой самоисправления SQL")
+st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
+st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
 # Безопасное считывание API Ключа из Streamlit Secrets
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 # =====================================================================
-# НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ (БЕЗ SSL-ОШИБОК)
+# НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ПОЛНОЙ БАЗЫ ДАННЫХ
 # =====================================================================
 DB_PATH = "olist.db"
 DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+
 
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 1000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
-    with st.spinner("📦 База данных Olist не найдена. Скачиваю оригинальный датасет маркетплейса (65 MB)..."):
+    with st.spinner("📦 Полная база Olist не найдена. Скачиваю весь датасет DWH маркетплейса (9 таблиц, 65 MB)..."):
         try:
             ssl_context = ssl._create_unverified_context()
             with urllib.request.urlopen(DB_URL, context=ssl_context) as response, open(DB_PATH, 'wb') as out_file:
                 out_file.write(response.read())
-            st.success("✅ База данных Olist успешно загружена и подключена!")
+            st.success("✅ Все 9 таблиц базы данных успешно загружены и подключена!")
         except Exception as e:
             st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
-# Карта схемы базы данных для ИИ
+# =====================================================================
+# ПОЛНАЯ СХЕМА ВСЕХ 9 ТАБЛИЦ СТРУКТУРЫ OLIST ДЛЯ ИИ
+# =====================================================================
 DATABASE_SCHEMA = """
-Table orders_dataset { 
+Table customers_dataset {
+  customer_id string [pk] -> Перекрестная ссылка к orders_dataset
+  customer_unique_id string -> Уникальный неизменяемый ID клиента
+  customer_zip_code_prefix integer -> Первые 5 цифр почтового индекса
+  customer_city string -> Город клиента
+  customer_state string -> Штат клиента
+}
+
+Table geolocation_dataset {
+  geolocation_zip_code_prefix integer [pk] -> Первые 5 цифр индекса для связи с клиентами/продавцами
+  geolocation_lat float -> Широта
+  geolocation_lng float -> Долгота
+  geolocation_city string -> Название города в геолокации
+  geolocation_state string -> Код штата в геолокации
+}
+
+Table orders_dataset {
   order_id string [pk]
-  customer_id string
-  order_status string 
-  order_purchase_timestamp string
+  customer_id string -> Связь с таблицей клиентов
+  order_status string -> Статус заказа (delivered, shipped, cancelled и т.д.)
+  order_purchase_timestamp string -> Дата и время совершения покупки (Формат: YYYY-MM-DD HH:MM:SS)
+  order_approved_at string -> Время подтверждения оплаты
+  order_delivered_carrier_date string -> Время передачи заказа в службу доставки
+  order_delivered_customer_date string -> Фактическое время доставки клиенту
+  order_estimated_delivery_date string -> Обещанная (планируемая) дата доставки
 }
-Table order_items_dataset { 
-  order_id string 
-  order_item_id int 
-  product_id string 
-  seller_id string 
-  price float 
+
+Table order_items_dataset {
+  order_id string
+  order_item_id integer -> Порядковый номер товара внутри одного заказа
+  product_id string -> ID товара для связи с products_dataset
+  seller_id string -> ID продавца для связи с sellers_dataset
+  price float -> Цена за единицу товара
 }
+
 Table order_payments_dataset {
   order_id string
-  payment_sequential integer
-  payment_value float
-  payment_type string
-  payment_installments integer
+  payment_sequential integer -> Порядковый номер транзакции (если платили несколькими способами)
+  payment_type string -> Способ оплаты (credit_card, debit_card, boleto, voucher)
+  payment_installments integer -> Количество платежей по рассрочке
+  payment_value float -> Сумма, уплаченная в этой транзакции
 }
-Table review_dataset { 
+
+Table review_dataset {
   review_id string [pk]
-  order_id string 
-  review_score int 
+  order_id string -> Связь с заказом
+  review_score integer -> Оценка удовлетворенности клиента (от 1 до 5)
+  review_creation_date string -> Дата отправки анкеты отзыва
+  review_answer_timestamp string -> Фактическое время ответа клиента
 }
-Table products_dataset { 
+
+Table products_dataset {
   product_id string [pk]
-  product_category_name string 
+  product_category_name string -> Название категории на португальском языке
+  product_name_lenght integer
+  product_description_lenght integer
+  product_photos_qty integer
+  product_weight_g integer
+  product_length_cm integer
+  product_height_cm integer
+  product_width_cm integer
+}
+
+Table sellers_dataset {
+  seller_id string [pk]
+  seller_zip_code_prefix integer -> Index продавца
+  seller_city string -> Город продавца
+  seller_state string -> Штат продавца
+}
+
+Table product_category_name_translation {
+  product_category_name string [pk] -> Категория на португальском
+  product_category_name_english string -> Категория на английском (используй для вывода понятных категорий!)
 }
 """
 
 def run_sql_query(sql_code: str) -> pd.DataFrame:
-    """Выполняет SQL-запрос и возвращает DataFrame"""
+    """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_order_items_id ON order_items_dataset(order_id);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_review_order_id ON review_dataset(order_id);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_id ON order_items_dataset(product_id);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_payments_order_id ON order_payments_dataset(order_id);")
+    # Индексируем ключи связи для мгновенного выполнения JOIN
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_id ON customers_dataset(customer_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_zip ON customers_dataset(customer_zip_code_prefix);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_geo_zip ON geolocation_dataset(geolocation_zip_code_prefix);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_id ON orders_dataset(order_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_cust ON orders_dataset(customer_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_items_order ON order_items_dataset(order_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_items_prod ON order_items_dataset(product_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_items_sell ON order_items_dataset(seller_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_payments_order ON order_payments_dataset(order_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_reviews_order ON review_dataset(order_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_id ON products_dataset(product_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sellers_id ON sellers_dataset(seller_id);")
     
     df = pd.read_sql_query(sql_code, conn)
     conn.close()
     return df
-
-# Интерфейс ввода вопроса (Возвращаем ваш оригинальный чистый вопрос без подсказок!)
-default_query = "Find out why sales fell in November 2017?"
-user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
-
-if st.button(" Запустить расследование"):
-    if not os.environ.get("GROQ_API_KEY"):
-        st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
-    else:
-        with st.status("🕵️‍♂️ ИИ-аналитик изучает хранилище данных маркетплейса...", expanded=True) as status:
-            try:
-                st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
-                
-                sql_system_prompt = (
-                    f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this schema:\n{DATABASE_SCHEMA}\n\n"
-                    f"CRITICAL RULES:\n"
-                    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. METHODOLOGY: To understand why sales changed in a specific month, you MUST fetch a broader timeline for context. "
-                    f"   Generate a query that extracts monthly aggregates (SUM(price) AS total_sales, COUNT(DISTINCT order_id) AS num_orders) covering at least 3-4 months surrounding the target period (e.g., 2017-09, 2017-10, 2017-11, 2017-12) "
-                    f"   using `SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month` so the analyst can perform MoM (Month-over-Month) analysis.\n"
-                    f"3. Make sure every column used in GROUP BY or ORDER BY is explicitly defined in the SELECT statement.\n"
-                    f"4. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers."
-                )
-                
-                messages = [
-                    {"role": "system", "content": sql_system_prompt},
-                    {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
-                ]
-                
-                response = completion(
-                    model="groq/llama-3.1-8b-instant",
-                    messages=messages,
-                    temperature=0.1
-                )
-                
-                # СВЕРХНАДЕЖНЫЙ ПАРСЕР СРЕЗОВ: Вырезаем чистый текст SQL, если ИИ вернул объект ModelResponse
-                res_str = str(response)
-                if "content=" in res_str:
-                    # Ищем текст между content=" и следующей служебной переменной , role=
-                    try:
-                        generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
-                        # Обрабатываем экранирование символов переноса строки
-                        generated_sql = generated_sql.replace("\\n", "\n")
-                    except Exception:
-                        generated_sql = res_str
-                else:
-                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                        generated_sql = response.choices.message.content
-                    else:
-                        generated_sql = response['choices']['message']['content']
-                
-                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
-                
-                try:
-                    st.code(generated_sql, language="sql")
-                    result_df = run_sql_query(generated_sql)
-                except Exception as sql_error:
-                    st.warning("Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
-                    messages.append({"role": "assistant", "content": generated_sql})
-                    messages.append({
-                        "role": "user", 
-                        "content": f"Your previous SQL query failed with error: {str(sql_error)}. Please write a clean SQLite query: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders FROM orders_dataset o JOIN order_items_dataset oi ON o.order_id = oi.order_id WHERE sales_month BETWEEN '2017-08' AND '2017-12' GROUP BY sales_month ORDER BY sales_month; Return ONLY pure SQL text."
-                    })
-                    
-                    response = completion(
-                        model="groq/llama-3.1-8b-instant",
+    model="groq/llama-3.1-8b-instant",
                         messages=messages,
                         temperature=0.1
                     )
@@ -187,8 +179,8 @@ if st.button(" Запустить расследование"):
                     "4. Бизнес-рекомендация (Конкретные шаги для руководства компании на основе выводов)"
                 )
 
-                
-                report_response = completion(
+
+report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
