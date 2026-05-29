@@ -95,16 +95,17 @@ if st.button("🚀 Запустить расследование"):
                 
                 # Системный промпт, заставляющий модель выдать ТОЛЬКО чистый SQL-код
                 # Усиленный системный промпт с жестким ограничением диалекта SQLite
-                system_prompt = (
-                    f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this schema:\n{DATABASE_SCHEMA}\n\n"
-                    f"CRITICAL RULES:\n"
-                    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR FROM ...)' or 'EXTRACT(MONTH FROM ...)'.\n"
-                    f"2. To filter or group by dates/months/years in SQLite, ALWAYS use the 'strftime' function or 'LIKE' operator.\n"
-                    f"   Examples for November 2017:\n"
-                    f"   - WHERE order_purchase_timestamp LIKE '2017-11%'\n"
-                    f"   - WHERE strftime('%Y', order_purchase_timestamp) = '2017' AND strftime('%m', order_purchase_timestamp) = '11'\n"
-                    f"3. Return ONLY the raw SQL query. No markdown blocks, no explanations."
-                )                
+                  Усиленный промпт аналитика с защитой от ложных гипотез пользователя
+                analyst_system_prompt = (
+                    "Ты Главный бизнес-аналитик маркетплейса Olist. Твоя задача — взять сырую таблицу данных, проанализировать её и составить краткий отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
+                    "КРИТИЧЕСКИЕ ПРАВИЛА АНАЛИЗА:\n"
+                    "1. КРИТИЧЕСКОЕ МЫШЛЕНИЕ: Никогда не верь гипотезе в вопросе пользователя слепо. Если пользователь спрашивает 'почему упали продажи', но цифры из базы показывают рост (например, огромный оборот в миллион рублей) — ты ОБЯЗАН прямо опровергнуть вопрос пользователя и написать: 'Внимание, продажи не упали, а выросли!'.\n"
+                    "2. ФОРМАТ ОТЧЕТА:\n"
+                    "   - 1. Суть проблемы или Главный инсайт (Реальный тренд из цифр)\n"
+                    "   - 2. Цифры и факты (Точные доказательства из таблицы)\n"
+                    "   - 3. Бизнес-рекомендация (Что делать руководству компании)"
+                )
+              
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
@@ -164,11 +165,12 @@ if st.button("🚀 Запустить расследование"):
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
-                        {"role": "system", "content": "Ты Главный бизнес-аналитик маркетплейса Olist. Твоя задача — взять сырую таблицу данных, проанализировать её и составить краткий и емкий бизнес-отчет СТРОГО НА РУССКОМ ЯЗЫКЕ. Формат отчета: 1. Суть проблемы (Главный инсайт), 2. Цифры и факты (Доказательства из таблицы с точными значениями), 3. Бизнес-рекомендация (Что делать руководству компании?)."},
+                        {"role": "system", "content": analyst_system_prompt}, # <-- ПОДСТАВИЛИ ТУТ
                         {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные точные данные из базы:\n{result_df.to_string(index=False)}"}
                     ],
                     temperature=0.2
                 )
+
                 
                 # Универсальное извлечение текста отчета
                 if hasattr(report_response, 'choices') and hasattr(report_response.choices[0], 'message'):
