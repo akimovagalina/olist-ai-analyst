@@ -141,7 +141,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
 # Интерфейс ввода вопроса
 default_query = "Define the geographic distribution of customers by states. Show the top 5 states with the highest total sales volume and count of unique customers."
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
-                        if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
                             generated_sql = response.choices.message.content
                         else:
                             generated_sql = response['choices'][0]['message']['content']
