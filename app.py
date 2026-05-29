@@ -86,13 +86,13 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
 default_query = "Find out why sales fell in November 2017?"
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
 
-if st.button("Запустить расследование"):
+if st.button("🚀 Запустить расследование"):
     if not os.environ.get("GROQ_API_KEY"):
         st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
     else:
-        with st.status("ИИ-аналитик изучает хранилище данных маркетплейса...", expanded=True) as status:
+        with st.status("🕵️‍♂️ ИИ-аналитик изучает хранилище данных маркетплейса...", expanded=True) as status:
             try:
-                st.write("Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
+                st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
                 # ПРОФЕССИОНАЛЬНЫЙ SQL-ПРОМПТ: Учим ИИ вытаскивать широкий контекст для сравнения периодов
                 sql_system_prompt = (
@@ -117,10 +117,16 @@ if st.button("Запустить расследование"):
                     temperature=0.1
                 )
                 
-                if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                    generated_sql = response.choices.message.content
-                else:
-                    generated_sql = response['choices']['message']['content']
+                # УНИВЕРСАЛЬНЫЙ ПАРСЕР ОТВЕТА ИИ ДЛЯ ШАГА 1 (Защита от 'list indices' ошибок)
+                try:
+                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                        generated_sql = response.choices.message.content
+                    elif isinstance(response, list):
+                        generated_sql = response[0]['message']['content']
+                    else:
+                        generated_sql = response['choices']['message']['content']
+                except Exception:
+                    generated_sql = str(response)
                 
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
@@ -141,18 +147,24 @@ if st.button("Запустить расследование"):
                         temperature=0.1
                     )
                     
-                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                        generated_sql = response.choices.message.content
-                    else:
-                        generated_sql = response['choices']['message']['content']
+                    # УНИВЕРСАЛЬНЫЙ ПАРСЕР ДЛЯ ПОВТОРНОЙ ПОПЫТКИ ШАГА 1
+                    try:
+                        if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                            generated_sql = response.choices.message.content
+                        elif isinstance(response, list):
+                            generated_sql = response[0]['message']['content']
+                        else:
+                            generated_sql = response['choices']['message']['content']
+                    except Exception:
+                        generated_sql = str(response)
                         
                     generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                     st.markdown("**Исправленный SQL-запрос:**")
                     st.code(generated_sql, language="sql")
                     result_df = run_sql_query(generated_sql)
                 
-                st.write("Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
-                st.write("Шаг 3: Формирование аналитического отчета на русском языке...")
+                st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
+                st.write("✍ {🖨️} Шаг 3: Формирование аналитического отчета на русском языке...")
                 
                 # МЕТОДОЛОГИЧЕСКИЙ ПРОМПТ АНАЛИТИКА: Требуем глубокого сравнительного анализа и генерации гипотез
                 analyst_system_prompt = (
@@ -177,17 +189,23 @@ if st.button("Запустить расследование"):
                     temperature=0.2
                 )
                 
-                if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
-                    final_report = report_response.choices.message.content
-                else:
-                    final_report = report_response['choices']['message']['content']
+                # УНИВЕРСАЛЬНЫЙ ПАРСЕР ОТВЕТА ИИ ДЛЯ ШАГА 3 (Защита от 'list indices' ошибок)
+                try:
+                    if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
+                        final_report = report_response.choices.message.content
+                    elif isinstance(report_response, list):
+                        final_report = report_response[0]['message']['content']
+                    else:
+                        final_report = report_response['choices']['message']['content']
+                except Exception:
+                    final_report = str(report_response)
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
-                st.success(" Исторические данные из базы данных маркетплейса Olist для контекст-анализа:")
+                st.success("📊 Исторические данные из базы данных маркетплейса Olist для контекст-анализа:")
                 st.dataframe(result_df, use_container_width=True)
                 
-                st.subheader(" Финальный бизнес-отчет аналитика:")
+                st.subheader("🎯 Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
                 
             except Exception as e:
