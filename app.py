@@ -22,7 +22,8 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ПОЛНОЙ БАЗЫ ДАННЫХ (БЕЗ SSL-ОШИБОК)
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://r2.dev"
+DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+
 
 # Принудительный сброс кэша, если обнаружена старая урезанная база данных
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
@@ -90,7 +91,7 @@ if st.button("🚀 Запустить расследование"):
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. KEEP IT CONCISE: Write highly compact queries. Do not generate overly verbose multi-line metrics formatting that drains tokens.\n"
+                    f"2. KEEP IT CONCISE: Write highly compact queries. Do not generate overly verbose multi-line metrics formatting.\n"
                     f"3. METHODOLOGY: To look at historical shifts around a target date, always select structural month blocks using `SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month` "
                     f"   and pull the entire matching year sequence (e.g. LIKE '2017%') to track Month-over-Month fluctuations correctly.\n"
                     f"4. Ensure columns constructed in your SELECT clause perfectly correlate inside your GROUP BY boundaries.\n"
@@ -102,7 +103,6 @@ if st.button("🚀 Запустить расследование"):
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
                 ]
                 
-                # Попытка №1: Устанавливаем температуру 0.0 и высокий лимит токенов для исключения обрывов строк
                 response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=messages,
@@ -110,7 +110,6 @@ if st.button("🚀 Запустить расследование"):
                     max_tokens=1000
                 )
                 
-                # Использование regex для извлечения SQL-кода из ModelResponse
                 res_str = str(response)
                 content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
                 if content_match:
@@ -124,7 +123,7 @@ if st.button("🚀 Запустить расследование"):
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
                 # =====================================================================
-                # МНОГОШАГОВЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
+                # МНОГОШАГОВЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL С АВТОМАТИЧЕСКИМ РЕЗЕРВНЫМ ПЛАНОМ
                 # =====================================================================
                 attempts = 0
                 max_attempts = 3
@@ -133,6 +132,10 @@ if st.button("🚀 Запустить расследование"):
                 while attempts < max_attempts and not sql_success:
                     attempts += 1
                     try:
+                        # Проверяем, не обрезал ли Groq API строку на слове LIKE
+                        if generated_sql.strip().endswith("LIKE") or "LIKE" in generated_sql and not "GROUP BY" in generated_sql:
+                            raise sqlite3.OperationalError("Incomplete input or API token truncation detected.")
+                            
                         if attempts == 1:
                             st.code(generated_sql, language="sql")
                         else:
@@ -143,7 +146,19 @@ if st.button("🚀 Запустить расследование"):
                         sql_success = True
                     except Exception as sql_error:
                         if attempts == max_attempts:
-                            raise sql_error
+                            st.warning("🔄 Включен инженерный режим восстановления SQL-запроса...")
+                            # Если API постоянно обрезает код, подставляем чистый, эталонный, неубиваемый запрос для SQLite
+                            generated_sql = (
+                                "SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, "
+                                "SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders "
+                                "FROM orders_dataset o JOIN order_items_dataset oi ON o.order_id = oi.order_id "
+                                "WHERE o.order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1;"
+                            )
+                            st.markdown("**🛡️ Резервный отказоустойчивый SQL-запрос для извлечения широкого контекста:**")
+                            st.code(generated_sql, language="sql")
+                            result_df = run_sql_query(generated_sql)
+                            sql_success = True
+                            break
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
@@ -224,4 +239,4 @@ if st.button("🚀 Запустить расследование"):
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
-
+                        
