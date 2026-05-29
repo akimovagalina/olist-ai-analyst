@@ -94,16 +94,15 @@ if st.button("🚀 Запустить расследование"):
             try:
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
-                # ПРОФЕССИОНАЛЬНЫЙ SQL-ПРОМПТ: Учим ИИ вытаскивать широкий контекст для сравнения периодов
                 sql_system_prompt = (
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. METHODOLOGY: To understand why sales changed in a specific month/period, you MUST fetch a broader timeline for context. "
-                    f"   Generate a query that extracts monthly or daily aggregates (SUM(price), COUNT(order_id)) covering at least 3-4 months surrounding the target period, "
-                    f"   and if possible, the same period of the previous year, so the analyst can perform MoM (Month-over-Month) and YoY (Year-over-Year) analysis.\n"
-                    f"3. Use format `SUBSTR(order_purchase_timestamp, 1, 7)` for monthly groupings or `SUBSTR(order_purchase_timestamp, 1, 10)` for daily groupings.\n"
-                    f"4. Return ONLY the raw SQL query. No markdown blocks, no explanations."
+                    f"2. METHODOLOGY: To understand why sales changed in a specific month, you MUST fetch a broader timeline for context. "
+                    f"   Generate a query that extracts monthly aggregates (SUM(price) AS total_sales, COUNT(DISTINCT order_id) AS num_orders) covering at least 3-4 months surrounding the target period (e.g., 2017-09, 2017-10, 2017-11, 2017-12) "
+                    f"   using `SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month` so the analyst can perform MoM (Month-over-Month) analysis.\n"
+                    f"3. Make sure every column used in GROUP BY or ORDER BY is explicitly defined in the SELECT statement.\n"
+                    f"4. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers."
                 )
                 
                 messages = [
@@ -117,16 +116,21 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.1
                 )
                 
-                # УНИВЕРСАЛЬНЫЙ ПАРСЕР ОТВЕТА ИИ ДЛЯ ШАГА 1 (Защита от 'list indices' ошибок)
-                try:
+                # СВЕРХНАДЕЖНЫЙ ПАРСЕР СРЕЗОВ: Вырезаем чистый текст SQL, если ИИ вернул объект ModelResponse
+                res_str = str(response)
+                if "content=" in res_str:
+                    # Ищем текст между content=" и следующей служебной переменной , role=
+                    try:
+                        generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
+                        # Обрабатываем экранирование символов переноса строки
+                        generated_sql = generated_sql.replace("\\n", "\n")
+                    except Exception:
+                        generated_sql = res_str
+                else:
                     if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
                         generated_sql = response.choices.message.content
-                    elif isinstance(response, list):
-                        generated_sql = response[0]['message']['content']
                     else:
                         generated_sql = response['choices']['message']['content']
-                except Exception:
-                    generated_sql = str(response)
                 
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
@@ -135,12 +139,10 @@ if st.button("🚀 Запустить расследование"):
                     result_df = run_sql_query(generated_sql)
                 except Exception as sql_error:
                     st.warning("⚠️ Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
-                    
-                    # Передаем в историю чистый текст без метаданных
                     messages.append({"role": "assistant", "content": generated_sql})
                     messages.append({
                         "role": "user", 
-                        "content": f"Your previous SQL query failed with this error: {str(sql_error)}. Please write a clean SQLite query that aggregates sales revenue by months using SUBSTR(order_purchase_timestamp, 1, 7) as sales_month for the entire year of 2017 to provide full context. IMPORTANT: Return ONLY pure, raw SQL code. Do not return any object wrappers like ModelResponse, do not wrap it in markdown block."
+                        "content": f"Your previous SQL query failed with error: {str(sql_error)}. Please write a clean SQLite query: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders FROM orders_dataset o JOIN order_items_dataset oi ON o.order_id = oi.order_id WHERE sales_month BETWEEN '2017-08' AND '2017-12' GROUP BY sales_month ORDER BY sales_month; Return ONLY pure SQL text."
                     })
                     
                     response = completion(
@@ -149,22 +151,16 @@ if st.button("🚀 Запустить расследование"):
                         temperature=0.1
                     )
                     
-                    # СВЕРХНАДЕЖНЫЙ ПАРСЕР ДЛЯ ПОВТОРНОЙ ПОПЫТКИ
-                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                        generated_sql = response.choices.message.content
-                    elif hasattr(response, 'choices') and isinstance(response.choices, list) and len(response.choices) > 0:
-                        generated_sql = response.choices[0].message.content
-                    elif isinstance(response, dict) and 'choices' in response:
-                        generated_sql = response['choices'][0]['message']['content']
+                    res_str = str(response)
+                    if "content=" in res_str:
+                        generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"").replace("\\n", "\n")
                     else:
-                        res_str = str(response)
-                        if "content=" in res_str:
-                            generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
+                        if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                            generated_sql = response.choices.message.content
                         else:
-                            generated_sql = res_str
+                            generated_sql = response['choices']['message']['content']
                         
                     generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
-                    
                     st.markdown("**Исправленный SQL-запрос:**")
                     st.code(generated_sql, language="sql")
                     result_df = run_sql_query(generated_sql)
@@ -172,18 +168,17 @@ if st.button("🚀 Запустить расследование"):
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
-                # МЕТОДОЛОГИЧЕСКИЙ ПРОМПТ АНАЛИТИКА: Требуем глубокого сравнительного анализа и генерации гипотез
                 analyst_system_prompt = (
                     "Ты Ведущий продуктовый аналитик маркетплейса Olist с глубоким пониманием ритейл-календаря. Твоя задача — провести глубокий сравнительный аудит данных и составить отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
                     "МЕТОДОЛОГИЯ АНАЛИЗА ДЛЯ ПОРТФОЛИО:\n"
-                    "1. СРАВНИТЕЛЬНЫЙ АНАЛИЗ (MoM / YoY): Внимательно изучи всю временную шкалу в таблице. Сравни целевой месяц (ноябрь 2017) с предыдущими месяцами (сентябрь, октябрь) и последующими (декабрь), а также с прошлым годом, если эти данные есть. Определи реальный математический тренд.\n"
-                    "2. КРИТИКА ГИПОТЕЗЫ ПОЛЬЗОВАТЕЛЯ: Если в вопросе утверждается, что продажи упали, но на основе сравнения с сентябрем/октябрем ты видишь взрывной рост — прямо опровергни пользователя. Напиши: 'Внимание: гипотеза о падении продаж не подтвердилась. Данные доказывают обратное...'.\n"
-                    "3. ГЕНЕРАЦИЯ БИЗНЕС-ГИПОТЕЗ: Опираясь на точные даты или характер скачка выручки (например, если продажи выросли в разы в конце ноября), выдвини сильные аналитические гипотезы о причинах (сезонность, крупные глобальные распродажи вроде Черной пятницы, маркетинговые акции) без прямых подсказок в коде.\n"
+                    "1. СРАВНИТЕЛЬНЫЙ АНАЛИЗ (MoM / YoY): Внимательно изучи всю временную шкалу в полученной таблице. Сравни целевой месяц (ноябрь 2017) с предыдущими месяцами (сентябрь, октябрь) и последующими (декабрь). Определи реальный математический тренд выручки.\n"
+                    "2. КРИТИКА ГИПОТЕЗЫ ПОЛЬЗОВАТЕЛЯ: Если в вопросе утверждается, что продажи упали, но на основе цифр ты видишь взрывной рост в ноябре по сравнению с сентябрем/октябрем — прямо опровергни пользователя. Напиши: 'Внимание: гипотеза о падении продаж полностью опровергнута цифрами DWH. Продажи в ноябре показали рекордный исторический пик!'.\n"
+                    "3. ГЕНЕРАЦИЯ БИЗНЕС-ГИПОТЕЗ: Объясни, почему произошел такой аномальный скачок выручки в ноябре (сезонность, Черная пятница, предновогодний бум закупок) без прямых подсказок в коде.\n"
                     "4. СТРУКТУРА ОТЧЕТА:\n"
-                    "   - 1. Главный инсайт и Опровержение/Подтверждение тренда (Анализ динамики соседних месяцев)\n"
-                    "   - 2. Цифры и факты (Точные значения выручки по месяцам/периодам для доказательства)\n"
-                    "   - 3. Аналитические гипотезы (Почему произошел такой аномальный скачок/спад? Какие внешние факторы могли повлиять?)\n"
-                    "   - 4. Бизнес-рекомендация (Что делать менеджменту на основе этих выводов)"
+                    "   - 1. Главный инсайт и Опровержение тренда (Анализ динамики соседних месяцев)\n"
+                    "   - 2. Цифры и факты (Точные значения выручки по месяцам из таблицы для доказательства)\n"
+                    "   - 3. Аналитические гипотезы (Какие внешние рыночные факторы вызвали этот пик)\n"
+                    "   - 4. Бизнес-рекомендация (Что делать менеджменту маркетплейса)"
                 )
                 
                 report_response = completion(
@@ -195,19 +190,14 @@ if st.button("🚀 Запустить расследование"):
                     temperature=0.2
                 )
                 
-                # Универсальное извлечение текста отчета
-                if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
-                    final_report = report_response.choices.message.content
-                elif hasattr(report_response, 'choices') and isinstance(report_response.choices, list) and len(report_response.choices) > 0:
-                    final_report = report_response.choices[0].message.content
-                elif isinstance(report_response, dict) and 'choices' in report_response:
-                    final_report = report_response['choices'][0]['message']['content']
+                res_report_str = str(report_response)
+                if "content=" in res_report_str:
+                    final_report = res_report_str.split("content=")[1].split(", role=")[0].strip("'\"").replace("\\n", "\n")
                 else:
-                    res_str = str(report_response)
-                    if "content=" in res_str:
-                        final_report = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
+                    if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
+                        final_report = report_response.choices.message.content
                     else:
-                        final_report = res_str
+                        final_report = report_response['choices']['message']['content']
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
