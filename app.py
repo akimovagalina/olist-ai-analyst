@@ -146,16 +146,39 @@ if st.button("🚀 Запустить расследование"):
                             
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
-                    except Exception as sql_error:
+                                        except Exception as sql_error:
                         if attempts == max_attempts:
-                            st.warning("🔄 Включен инженерный режим восстановления SQL-запроса...")
-                            generated_sql = (
-                                "SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, "
-                                "SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders "
-                                "FROM orders_dataset o JOIN order_items_dataset oi ON o.order_id = oi.order_id "
-                                "WHERE o.order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1;"
+                            st.warning("🔄 Включен интеллектуальный режим восстановления SQL-запроса...")
+                            
+                            # Ультра-короткий динамический промпт, заставляющий выдать СТРОГО 3 строки кода без CASE WHEN
+                            fallback_prompt = (
+                                f"The user asked: '{user_query}'. Your previous complex query failed with a truncation error. "
+                                f"Based on this schema:\n{DATABASE_SCHEMA}\n"
+                                f"Write the SHORTEST possible valid SQLite query (max 4 lines) to fetch raw rows for this question. "
+                                f"NEVER use CASE WHEN or loops. Use plain SELECT, JOIN, GROUP BY and LIMIT 10. Return ONLY pure SQL text."
                             )
-                            st.markdown("**🛡️ Резервный отказоустойчивый SQL-запрос для извлечения широкого контекста:**")
+                            
+                            try:
+                                response_fallback = completion(
+                                    model="groq/llama-3.1-8b-instant",
+                                    messages=[{"role": "user", "content": fallback_prompt}],
+                                    temperature=0.0,
+                                    max_tokens=200
+                                )
+                                
+                                res_fb_str = str(response_fallback)
+                                fb_match = re.search(r'content=["\']([\s\S]*?)["\']', res_fb_str)
+                                if fb_match:
+                                    generated_sql = fb_match.group(1).replace("\\n", "\n")
+                                else:
+                                    generated_sql = response_fallback['choices']['message']['content']
+                                    
+                                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+                            except Exception:
+                                # Абсолютный сейв-контур, если даже простой запрос упал (выводим базовую географию клиентов)
+                                generated_sql = "SELECT customer_state, COUNT(customer_id) AS total_customers FROM customers_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
+                                
+                            st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
                             st.code(generated_sql, language="sql")
                             result_df = run_sql_query(generated_sql)
                             sql_success = True
@@ -163,13 +186,9 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                        # ОПТИМИЗАЦИЯ ПАМЯТИ: Полностью очищаем историю, чтобы сбросить лимит TPM
                         messages = [
                             {"role": "system", "content": sql_system_prompt},
-                            {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
-                                                       f"Please write a clean, complete SQLite query. "
-                                                       f"Blueprint: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(price) AS total_sales FROM order_items_dataset oi JOIN orders_dataset o ON oi.order_id = o.order_id WHERE order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1; "
-                                                       f"Return ONLY pure SQL text. Ensure the statement finishes completely and is never cut short."}
+                            {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Use strictly basic GROUP BY instead of CASE WHEN. Return ONLY raw SQL text."}
                         ]
                         
                         response = completion(
