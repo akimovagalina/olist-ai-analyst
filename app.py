@@ -210,7 +210,7 @@ if st.button("🚀 Запустить расследование"):
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
-                        {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные широкие данные из базы для контекста:\n{result_df.to_string(index=False)}"}
+                        {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные точные данные из базы (топ-15 лидеров для анализа):\n{result_df.head(15).to_string(index=False)}"}
                     ],
                     temperature=0.2
                 )
