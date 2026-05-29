@@ -285,6 +285,6 @@ if st.button("🚀 Запустить расследование"):
                 st.subheader("🎯 Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
                 
-            eexcept Exception as e:
+            except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
