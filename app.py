@@ -41,7 +41,7 @@ if not os.path.exists(DB_PATH):
             st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
 # Карта схемы базы данных для ИИ
-# Оптимизированная по токенам ультра-компактная схема DWH для обхода RateLimit
+# Оптимизированная компактная схема DWH с жесткими подсказками по JOIN
 DATABASE_SCHEMA = """
 Table customers_dataset { customer_id string [pk], customer_unique_id string, customer_zip_code_prefix int, customer_city string, customer_state string }
 Table geolocation_dataset { geolocation_zip_code_prefix int [pk], geolocation_lat float, geolocation_lng float, geolocation_city string, geolocation_state string }
@@ -52,7 +52,10 @@ Table review_dataset { review_id string [pk], order_id string, review_score int,
 Table products_dataset { product_id string [pk], product_category_name string, product_name_lenght int, product_description_lenght int, product_photos_qty int, product_weight_g int, product_length_cm int, product_height_cm int, product_width_cm int }
 Table sellers_dataset { seller_id string [pk], seller_zip_code_prefix int, seller_city string, seller_state string }
 Table product_category_name_translation { product_category_name string [pk], product_category_name_english string }
+
+CRITICAL JOIN RELATION: To get category name in English, you MUST JOIN products_dataset WITH product_category_name_translation ON p.product_category_name = t.product_category_name and SELECT t.product_category_name_english!
 """
+
 
 def run_sql_query(sql_code: str) -> pd.DataFrame:
     """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
@@ -92,12 +95,12 @@ if st.button("🚀 Запустить расследование"):
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. ULTRA-COMPACT CODE: Keep the query as short as possible (maximum 5-6 lines). "
-                    f"   NEVER use verbose 'SUM(CASE WHEN ...)' or 'COUNT(CASE WHEN ...)' to break down categories or states manually.\n"
-                    f"3. GROUPING STANDARD: To segment data by states, categories, types, or dates, ALWAYS use the standard `GROUP BY` clause. "
-                    f"   Example for customer segments: SELECT customer_state, COUNT(DISTINCT customer_id) AS customer_count, COUNT(order_id) AS order_count FROM customers_dataset c JOIN orders_dataset o ON c.customer_id = o.customer_id GROUP BY 1 ORDER BY 2 DESC LIMIT 10;\n"
-                    f"4. Return ONLY the raw SQL query string. No markdown blocks, no conversational explanations, no object wrappers."
+                    f"2. ULTRA-COMPACT CODE: Keep the query under 5 lines. Never use complex SUM(CASE WHEN...) or loops.\n"
+                    f"3. ENGLISH CATEGORIES: If categories are involved, follow the CRITICAL JOIN RELATION to fetch product_category_name_english. Never select it directly from products_dataset.\n"
+                    f"4. GROUPING STANDARD: Always use a plain `GROUP BY 1` clause for segmentations. Example: SELECT t.product_category_name_english, COUNT(oi.order_id) FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name GROUP BY 1 LIMIT 10;\n"
+                    f"5. Return ONLY the raw SQL query string. No explanations, no markdown blocks, no conversation."
                 )
+
 
                 
                 messages = [
