@@ -190,8 +190,13 @@ if st.button("🚀 Запустить расследование"):
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
                 # Выводим точную таблицу на экран
+                st.success("📊 Точные цифры из базы данных маркетплейса Olist:")
+                st.dataframe(result_df, use_container_width=True)
+                
+                # Выводим текстовый отчет
                 st.subheader("🎯 Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
+                
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
