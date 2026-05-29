@@ -21,8 +21,7 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ПОЛНОЙ БАЗЫ ДАННЫХ
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
-
+DB_URL = "https://r2.dev"
 
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 1000000:
     os.remove(DB_PATH)
@@ -138,7 +137,68 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     df = pd.read_sql_query(sql_code, conn)
     conn.close()
     return df
-    model="groq/llama-3.1-8b-instant",
+# Интерфейс ввода вопроса
+default_query = "Define the geographic distribution of customers by states. Show the top 5 states with the highest total sales volume and count of unique customers."
+user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
+
+if st.button("🚀 Запустить расследование"):
+    if not os.environ.get("GROQ_API_KEY"):
+        st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
+    else:
+        with st.status("🕵️‍♂️ ИИ-аналитик изучает полную инфраструктуру DWH...", expanded=True) as status:
+            try:
+                st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
+                
+                sql_system_prompt = (
+                    f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
+                    f"CRITICAL RULES:\n"
+                    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
+                    f"2. GEOGRAPHY ANALYSIS: When asked about geographic distribution of customers, use columns like `customer_state` or `customer_city` from `customers_dataset` and JOIN them with sales figures from `order_items_dataset` or `order_payments_dataset` via `orders_dataset`.\n"
+                    f"3. TRANSLATIONS: When categories are involved, always JOIN `product_category_name_translation` to display `product_category_name_english` instead of Portuguese names.\n"
+                    f"4. Make sure every aggregated or constructed column in SELECT is correct and matched in GROUP BY or ORDER BY.\n"
+                    f"5. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers like ModelResponse."
+                )
+                
+                messages = [
+                    {"role": "system", "content": sql_system_prompt},
+                    {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
+                ]
+                
+                response = completion(
+                    model="groq/llama-3.1-8b-instant",
+                    messages=messages,
+                    temperature=0.1
+                )
+                
+                # Извлекаем чистый текст из потока ModelResponse
+                res_str = str(response)
+                if "content=" in res_str:
+                    try:
+                        generated_sql = res_str.split("content=")[1].split(", role=")[0].strip("'\"")
+                        generated_sql = generated_sql.replace("\\n", "\n")
+                    except Exception:
+                        generated_sql = res_str
+                else:
+                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                        generated_sql = response.choices.message.content
+                    else:
+                        generated_sql = response['choices'][0]['message']['content']
+                
+                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+                
+                try:
+                    st.code(generated_sql, language="sql")
+                    result_df = run_sql_query(generated_sql)
+                except Exception as sql_error:
+                    st.warning("⚠️ Обнаружена ошибка в структуре SQL. Запускаю цикл самоисправления...")
+                    messages.append({"role": "assistant", "content": generated_sql})
+                    messages.append({
+                        "role": "user", 
+                        "content": f"Your query failed with error: {str(sql_error)}. Please rewrite a clean SQLite query matching the 9-table schema correctly. Ensure all selected dimension columns are correct. Return ONLY pure SQL code."
+                    })
+                    
+                    response = completion(
+                        model="groq/llama-3.1-8b-instant",
                         messages=messages,
                         temperature=0.1
                     )
@@ -150,7 +210,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
                         if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
                             generated_sql = response.choices.message.content
                         else:
-                            generated_sql = response['choices']['message']['content']
+                            generated_sql = response['choices'][0]['message']['content']
                         
                     generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                     st.markdown("**Исправленный SQL-запрос:**")
@@ -160,27 +220,20 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
-                                # 2. УНИВЕРСАЛЬНЫЙ СИСТЕМНЫЙ ПРОМПТ АНАЛИТИКА С ДИНАМИЧЕСКИМ МЫШЛЕНИЕМ
+                # УНИВЕРСАЛЬНЫЙ ПРОМПТ АНАЛИТИКА ПОД ВСЕ ИЗМЕРЕНИЯ БИЗНЕСА
                 analyst_system_prompt = (
-                    "Ты Главный бизнес-аналитик маркетплейса Olist. Твоя задача — взять сырую таблицу данных, "
-                    "проанализировать её структуру и составить краткий и емкий бизнес-отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
-                    "ИНСТРУКЦИЯ ДЛЯ АВТОНОМНОГО АНАЛИЗА:\n"
-                    "1. ОПРЕДЕЛЕНИЕ КОНТЕКСТА: Посмотри на колонки в таблице. Если там есть даты — анализируй временные тренды и сезонность. "
-                    "   Если там есть города/регионы — анализируй географическое распределение и плотность продаж. Если там категории — анализируй товарную матрицу.\n"
-                    "2. КРИТИЧЕСКОЕ МЫШЛЕНИЕ: Внимательно сопоставляй вопрос пользователя с полученными цифрами. "
-                    "   Если вопрос содержит ложную предпосылку (например, утверждает о падении тренда, а цифры показывают рост или стабильность), "
-                    "   ты ОБЯЗАН прямо указать на эту ошибку в отчете и опровергнуть ложную гипотезу бизнеса.\n"
-                    "3. ВЫДВИЖЕНИЕ ГИПОТЕЗ: На основе выявленных аномалий или лидеров (будь то пиковый день в календарном году или доминирующий город) "
-                    "   выдвини сильные коммерческие гипотезы о причинах такого распределения (внешние рыночные факторы, плотность населения, праздники/распродажи).\n\n"
-                    "ФОРМАТ ОТЧЕТА:\n"
-                    "1. Суть проблемы или Главный инсайт (Реальный тренд, который доказывают цифры)\n"
-                    "2. Цифры и факты (Точные доказательства, лидеры и аутсайдеры из таблицы с конкретными значениями)\n"
-                    "3. Аналитические гипотезы (Почему сформировался такой тренд? Какие скрытые факторы на него повлияли?)\n"
-                    "4. Бизнес-рекомендация (Конкретные шаги для руководства компании на основе выводов)"
+                    "Ты Главный бизнес-аналитик маркетплейса Olist. Твоя задача — провести глубокий аудит данных и составить отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
+                    "МЕТОДОЛОГИЯ АВТОНОМНОГО АНАЛИЗА:\n"
+                    "1. ДИНАМИЧЕСКИЙ ОХВАТ: Определи контекст данных. Если в таблице города/штаты — делай глубокий географический разбор (где ядро клиентов, где дефицит). Если там даты — делай MoM/YoY анализ трендов. Если категории — анализируй структуру продаж.\n"
+                    "2. КРИТИКА И ГИПОТЕЗЫ: Внимательно сопоставляй вопрос бизнеса с полученными цифрами. Опровергай ложные гипотезы пользователя, если они противоречат математическим фактам. Выдвигай сильные коммерческие гипотезы о скрытых причинах такого распределения.\n"
+                    "3. СТРУКТУРА ОТЧЕТА:\n"
+                    "   - 1. Главный инсайт исследования (Реальное положение дел из цифр)\n"
+                    "   - 2. Цифры и факты (Точные значения, лидеры и аутсайдеры из таблицы для доказательства)\n"
+                    "   - 3. Аналитические гипотезы (Какие факторы определяют этот тренд)\n"
+                    "   - 4. Бизнес-рекомендация (Конкретные шаги для руководства маркетплейса)"
                 )
-
-
-report_response = completion(
+                
+                report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
@@ -196,14 +249,16 @@ report_response = completion(
                     if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
                         final_report = report_response.choices.message.content
                     else:
-                        final_report = report_response['choices']['message']['content']
+                        final_report = report_response['choices'][0]['message']['content']
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
-                st.success("Исторические данные из базы данных маркетплейса Olist для контекст-анализа:")
+                # Выводим точную таблицу на экран
+                st.success("📊 Данные из полной инфраструктуры DWH Olist для анализа:")
                 st.dataframe(result_df, use_container_width=True)
                 
-                st.subheader("Финальный бизнес-отчет аналитика:")
+                # Выводим текстовый отчет
+                st.subheader("🎯 Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
                 
             except Exception as e:
