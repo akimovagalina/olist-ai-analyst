@@ -87,16 +87,18 @@ if st.button("🚀 Запустить расследование"):
             try:
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
+                # УСИЛЕННЫЙ SQL-ПРОМПТ: Жесткое ограничение длины кода для обхода TPM лимитов
                 sql_system_prompt = (
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. KEEP IT CONCISE: Write highly compact queries. Do not generate overly verbose multi-line metrics formatting.\n"
-                    f"3. METHODOLOGY: To look at historical shifts around a target date, always select structural month blocks using `SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month` "
-                    f"   and pull the entire matching year sequence (e.g. LIKE '2017%') to track Month-over-Month fluctuations correctly.\n"
-                    f"4. Ensure columns constructed in your SELECT clause perfectly correlate inside your GROUP BY boundaries.\n"
-                    f"5. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
+                    f"2. ULTRA-COMPACT CODE: Keep the query as short as possible (maximum 5-6 lines). "
+                    f"   NEVER use verbose 'SUM(CASE WHEN ...)' or 'COUNT(CASE WHEN ...)' to break down categories or states manually.\n"
+                    f"3. GROUPING STANDARD: To segment data by states, categories, types, or dates, ALWAYS use the standard `GROUP BY` clause. "
+                    f"   Example for customer segments: SELECT customer_state, COUNT(DISTINCT customer_id) AS customer_count, COUNT(order_id) AS order_count FROM customers_dataset c JOIN orders_dataset o ON c.customer_id = o.customer_id GROUP BY 1 ORDER BY 2 DESC LIMIT 10;\n"
+                    f"4. Return ONLY the raw SQL query string. No markdown blocks, no conversational explanations, no object wrappers."
                 )
+
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
