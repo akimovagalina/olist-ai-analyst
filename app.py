@@ -5,16 +5,16 @@ import streamlit as st
 import asyncio
 import urllib.request
 import ssl
-import re  # Safe regular expression parsing for raw API data extraction
+import re  # Безопасный парсинг регулярных выражений для извлечения ответов API
 from litellm import completion
 
-# Configure Streamlit presentation layer
+# Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
 st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
-# Secure background environmental setup for credentials
+# Безопасное считывание API Ключа из Streamlit Secrets
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
@@ -25,7 +25,7 @@ DB_PATH = "olist.db"
 DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 
-# Force cache flush if an outdated, clipped database asset is detected
+# Принудительный сброс кэша, если обнаружена старая урезанная база данных
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
     os.remove(DB_PATH)
 
@@ -103,9 +103,9 @@ if st.button("🚀 Запустить расследование"):
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
                 ]
                 
-                # ИСПОЛЬЗУЕМ ФЛАГМАНСКУЮ МОДЕЛЬ LLAMA 3.3 70B С ОГРОМНЫМИ ЛИМИТАМИ ТОКЕНОВ ДЛЯ 100% ТОЧНОСТИ
+                # МИГРАЦИЯ НА АКТУАЛЬНЫЙ ФЛАГМАН LLAMA 3.3 70B VERSATILE С ДЛИННЫМ КОНТЕКСТОМ И ТЕМПЕРАТУРОЙ 0.0
                 response = completion(
-                    model="groq/llama-3.3-70b-specdec",
+                    model="groq/llama-3.3-70b-versatile",
                     messages=messages,
                     temperature=0.0,
                     max_tokens=1000
@@ -167,7 +167,7 @@ if st.button("🚀 Запустить расследование"):
                         ]
                         
                         response = completion(
-                            model="groq/llama-3.3-70b-specdec",
+                            model="groq/llama-3.3-70b-versatile",
                             messages=messages,
                             temperature=0.0,
                             max_tokens=1000
@@ -202,7 +202,7 @@ if st.button("🚀 Запустить расследование"):
                 
                 # ОПТИМИЗАЦИЯ ТОКЕНОВ (TPM FIX): Передаем модели только топ-15 строк через .head(15), сжимая контекст в 10 раз
                 report_response = completion(
-                    model="groq/llama-3.3-70b-specdec",
+                    model="groq/llama-3.3-70b-versatile",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
                         {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные широкие данные из базы (топ-15 лидеров для анализа):\n{result_df.head(15).to_string(index=False)}"}
@@ -213,7 +213,7 @@ if st.button("🚀 Запустить расследование"):
                 
                 # REGEX ПАРСЕР ДЛЯ ИЗВЛЕЧЕНИЯ ФИНАЛЬНОГО ТЕКСТОВОГО ОТЧЕТА
                 res_report_str = str(report_response)
-                content_match = re.search(r'content=["\']([\s\EN]*?)["\']', res_report_str)
+                content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_report_str)
                 if content_match:
                     final_report = content_match.group(1).replace("\\n", "\n")
                 else:
