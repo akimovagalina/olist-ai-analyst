@@ -5,7 +5,7 @@ import streamlit as st
 import asyncio
 import urllib.request
 import ssl
-import re  # Импортируем регулярные выражения для неубиваемого парсинга ответов LLM
+import re  # Безопасный парсинг регулярных выражений для извлечения ответов API
 from litellm import completion
 
 # Настройка внешнего вида страницы Streamlit
@@ -22,17 +22,16 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ПОЛНОЙ БАЗЫ ДАННЫХ (БЕЗ SSL-ОШИБОК)
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+DB_URL = "https://r2.dev"
 
-
-# Если файл весит меньше 80 МБ (значит, это старая урезанная база), принудительно удаляем её
+# Принудительный сброс кэша, если обнаружена старая урезанная база данных
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
     with st.spinner("📦 Полная база Olist не найдена. Скачиваю весь датасет DWH маркетплейса (9 таблиц, 65 MB)..."):
         try:
-            # ТРЮК ДЛЯ ПОРТФОЛИО: Отключаем строгую проверку SSL сертификатов для обхода SSLV3_ALERT ошибок
+            # ТРЮК ДЛЯ ПОРТФОЛИО: Отключаем проверку SSL для предотвращения ошибок handshake alert
             ssl_context = ssl._create_unverified_context()
             with urllib.request.urlopen(DB_URL, context=ssl_context) as response, open(DB_PATH, 'wb') as out_file:
                 out_file.write(response.read())
@@ -117,7 +116,6 @@ Table product_category_name_translation {
   product_category_name_english string -> Категория на английском (используй для вывода понятных категорий!)
 }
 """
-
 def run_sql_query(sql_code: str) -> pd.DataFrame:
     """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
     conn = sqlite3.connect(DB_PATH)
@@ -138,6 +136,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     df = pd.read_sql_query(sql_code, conn)
     conn.close()
     return df
+
 # Интерфейс ввода вопроса
 default_query = "Find out why sales fell in November 2017 using order_purchase_timestamp column."
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
@@ -154,29 +153,27 @@ if st.button("🚀 Запустить расследование"):
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. KEEP IT SIMPLE: Write the shortest possible query. Do not use SUM(CASE WHEN...) or complex subqueries.\n"
-                    f"3. METHODOLOGY: To show sales trends around November 2017, aggregate metrics strictly like this:\n"
-                    f"   SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, SUM(oi.price) AS total_sales \n"
-                    f"   FROM orders_dataset o \n"
-                    f"   JOIN order_items_dataset oi ON o.order_id = oi.order_id \n"
-                    f"   WHERE o.order_purchase_timestamp LIKE '2017%' \n"
-                    f"   GROUP BY 1 ORDER BY 1;\n"
-                    f"4. Return ONLY the raw SQL query. No markdown blocks, no explanations, no object wrappers."
+                    f"2. KEEP IT CONCISE: Write highly compact queries. Do not generate overly verbose multi-line metrics formatting that drains tokens.\n"
+                    f"3. METHODOLOGY: To look at historical shifts around a target date, always select structural month blocks using `SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month` "
+                    f"   and pull the entire matching year sequence (e.g. LIKE '2017%') to track Month-over-Month fluctuations correctly.\n"
+                    f"4. Ensure columns constructed in your SELECT clause perfectly correlate inside your GROUP BY boundaries.\n"
+                    f"5. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
-
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
                 ]
                 
+                # Попытка №1: Устанавливаем температуру 0.0 и высокий лимит токенов для исключения обрывов строк
                 response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=messages,
-                    temperature=0.1
+                    temperature=0.0,
+                    max_tokens=1000
                 )
                 
-                # НАДЕЖНЫЙ REGEX ПАРСЕР ДЛЯ ПЕРВОЙ ПОПЫТКИ
+                # Использование regex для извлечения SQL-кода из ModelResponse
                 res_str = str(response)
                 content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
                 if content_match:
@@ -213,22 +210,21 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                        # Передаем в историю чистый текст без метаданных
                         messages.append({"role": "assistant", "content": generated_sql})
                         messages.append({
                             "role": "user", 
-                            "content": f"Your previous SQL query failed with error: {str(sql_error)}. Please write a clean SQLite query. "
-                                       f"Example: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(price) AS total_sales, COUNT(DISTINCT order_id) AS num_orders FROM order_items_dataset oi JOIN orders_dataset o ON oi.order_id = o.order_id WHERE order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1; "
-                                       f"Return ONLY pure SQL text without any object wrappers or extra talk."
+                            "content": f"Your previous SQL query failed with error: {str(sql_error)}. Please write a clean, complete SQLite query. "
+                                       f"Example blueprint: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(price) AS total_sales FROM order_items_dataset oi JOIN orders_dataset o ON oi.order_id = o.order_id WHERE order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1; "
+                                       f"Return ONLY pure SQL text. Ensure the statement finishes completely and is never cut short."
                         })
                         
                         response = completion(
                             model="groq/llama-3.1-8b-instant",
                             messages=messages,
-                            temperature=0.1
+                            temperature=0.0,
+                            max_tokens=1000
                         )
                         
-                        # НАДЕЖНЫЙ REGEX ПАРСЕР ДЛЯ ЦИКЛА ПОВТОРНЫХ ПОПЫТОК
                         res_str = str(response)
                         content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
                         if content_match:
@@ -245,7 +241,6 @@ if st.button("🚀 Запустить расследование"):
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
-                # УНИВЕРСАЛЬНЫЙ ПРОМПТ АНАЛИТИКА ПОД ВСЕ ИЗМЕРЕНИЯ БИЗНЕСА
                 analyst_system_prompt = (
                     "Ты Ведущий продуктовый аналитик маркетплейса Olist с глубоким пониманием ритейл-календаря. Твоя задача — провести глубокий сравнительный аудит данных и составить отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
                     "МЕТОДОЛОГИЯ АНАЛИЗА ДЛЯ ПОРТФОЛИО:\n"
@@ -292,3 +287,4 @@ if st.button("🚀 Запустить расследование"):
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
+
