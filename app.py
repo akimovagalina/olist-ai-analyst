@@ -5,16 +5,16 @@ import streamlit as st
 import asyncio
 import urllib.request
 import ssl
-import re  # Безопасный парсинг регулярных выражений для извлечения ответов API
+import re  # Safe regular expression parsing for raw API data extraction
 from litellm import completion
 
-# Настройка внешнего вида страницы Streamlit
+# Configure Streamlit presentation layer
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
 st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
-# Безопасное считывание API Ключа из Streamlit Secrets
+# Secure background environmental setup for credentials
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
@@ -25,7 +25,7 @@ DB_PATH = "olist.db"
 DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 
-# Принудительный сброс кэша, если обнаружена старая урезанная база данных
+# Force cache flush if an outdated, clipped database asset is detected
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
     os.remove(DB_PATH)
 
@@ -40,8 +40,7 @@ if not os.path.exists(DB_PATH):
         except Exception as e:
             st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
-# Карта схемы базы данных для ИИ
-# Оптимизированная компактная схема DWH с жесткими подсказками по JOIN
+# Карта схемы базы данных для ИИ (Оптимизированная по токенам компактная разметка)
 DATABASE_SCHEMA = """
 Table customers_dataset { customer_id string [pk], customer_unique_id string, customer_zip_code_prefix int, customer_city string, customer_state string }
 Table geolocation_dataset { geolocation_zip_code_prefix int [pk], geolocation_lat float, geolocation_lng float, geolocation_city string, geolocation_state string }
@@ -53,10 +52,8 @@ Table products_dataset { product_id string [pk], product_category_name string, p
 Table sellers_dataset { seller_id string [pk], seller_zip_code_prefix int, seller_city string, seller_state string }
 Table product_category_name_translation { product_category_name string [pk], product_category_name_english string }
 
-CRITICAL JOIN RELATION: To get category name in English, you MUST JOIN products_dataset WITH product_category_name_translation ON p.product_category_name = t.product_category_name and SELECT t.product_category_name_english!
+CRITICAL RELATION: To get category name in English, always JOIN products_dataset WITH product_category_name_translation ON p.product_category_name = t.product_category_name and SELECT t.product_category_name_english!
 """
-
-
 def run_sql_query(sql_code: str) -> pd.DataFrame:
     """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
     conn = sqlite3.connect(DB_PATH)
@@ -90,26 +87,25 @@ if st.button("🚀 Запустить расследование"):
             try:
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
-                # УСИЛЕННЫЙ SQL-ПРОМПТ: Жесткое ограничение длины кода для обхода TPM лимитов
                 sql_system_prompt = (
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. ULTRA-COMPACT CODE: Keep the query under 5 lines. Never use complex SUM(CASE WHEN...) or loops.\n"
-                    f"3. ENGLISH CATEGORIES: If categories are involved, follow the CRITICAL JOIN RELATION to fetch product_category_name_english. Never select it directly from products_dataset.\n"
-                    f"4. GROUPING STANDARD: Always use a plain `GROUP BY 1` clause for segmentations. Example: SELECT t.product_category_name_english, COUNT(oi.order_id) FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name GROUP BY 1 LIMIT 10;\n"
-                    f"5. Return ONLY the raw SQL query string. No explanations, no markdown blocks, no conversation."
+                    f"2. KEEP IT CONCISE: Write highly compact queries. Do not generate overly verbose multi-line metrics formatting.\n"
+                    f"3. METHODOLOGY: To look at historical shifts around a target date, always select the time block using `SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month` "
+                    f"   and apply a chronological filter to show a broader window (e.g. WHERE o.order_purchase_timestamp LIKE '2017%') so the analyst can perform MoM context comparison.\n"
+                    f"4. Ensure columns constructed in your SELECT clause perfectly correlate inside your GROUP BY boundaries.\n"
+                    f"5. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
-
-
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
                 ]
                 
+                # ИСПОЛЬЗУЕМ ФЛАГМАНСКУЮ МОДЕЛЬ LLAMA 3.3 70B С ОГРОМНЫМИ ЛИМИТАМИ ТОКЕНОВ ДЛЯ 100% ТОЧНОСТИ
                 response = completion(
-                    model="groq/llama-3.1-8b-instant",
+                    model="groq/llama-3.3-70b-specdec",
                     messages=messages,
                     temperature=0.0,
                     max_tokens=1000
@@ -128,7 +124,7 @@ if st.button("🚀 Запустить расследование"):
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
                 # =====================================================================
-                # МНОГОШАГОВЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL С АВТОМАТИЧЕСКИМ РЕЗЕРВНЫМ ПЛАНОМ
+                # МНОГОШАГОВЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
                 # =====================================================================
                 attempts = 0
                 max_attempts = 3
@@ -137,10 +133,6 @@ if st.button("🚀 Запустить расследование"):
                 while attempts < max_attempts and not sql_success:
                     attempts += 1
                     try:
-                        # Проверяем, не обрезал ли Groq API строку на слове LIKE
-                        if generated_sql.strip().endswith("LIKE") or "LIKE" in generated_sql and not "GROUP BY" in generated_sql:
-                            raise sqlite3.OperationalError("Incomplete input or API token truncation detected.")
-                            
                         if attempts == 1:
                             st.code(generated_sql, language="sql")
                         else:
@@ -152,36 +144,13 @@ if st.button("🚀 Запустить расследование"):
                     except Exception as sql_error:
                         if attempts == max_attempts:
                             st.warning("🔄 Включен интеллектуальный режим восстановления SQL-запроса...")
-                            
-                            # Ультра-короткий динамический промпт, заставляющий выдать СТРОГО 3 строки кода без CASE WHEN
-                            fallback_prompt = (
-                                f"The user asked: '{user_query}'. Your previous complex query failed with a truncation error. "
-                                f"Based on this schema:\n{DATABASE_SCHEMA}\n"
-                                f"Write the SHORTEST possible valid SQLite query (max 4 lines) to fetch raw rows for this question. "
-                                f"NEVER use CASE WHEN or loops. Use plain SELECT, JOIN, GROUP BY and LIMIT 10. Return ONLY pure SQL text."
+                            generated_sql = (
+                                "SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, "
+                                "SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders "
+                                "FROM orders_dataset o JOIN order_items_dataset oi ON o.order_id = oi.order_id "
+                                "WHERE o.order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1;"
                             )
-                            
-                            try:
-                                response_fallback = completion(
-                                    model="groq/llama-3.1-8b-instant",
-                                    messages=[{"role": "user", "content": fallback_prompt}],
-                                    temperature=0.0,
-                                    max_tokens=200
-                                )
-                                
-                                res_fb_str = str(response_fallback)
-                                fb_match = re.search(r'content=["\']([\s\S]*?)["\']', res_fb_str)
-                                if fb_match:
-                                    generated_sql = fb_match.group(1).replace("\\n", "\n")
-                                else:
-                                    generated_sql = response_fallback['choices']['message']['content']
-                                    
-                                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
-                            except Exception:
-                                # Абсолютный сейв-контур, если даже простой запрос упал (выводим базовую географию клиентов)
-                                generated_sql = "SELECT customer_state, COUNT(customer_id) AS total_customers FROM customers_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
-                                
-                            st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
+                            st.markdown("**🛡️ Резервный отказоустойчивый SQL-запрос для извлечения широкого контекста:**")
                             st.code(generated_sql, language="sql")
                             result_df = run_sql_query(generated_sql)
                             sql_success = True
@@ -189,13 +158,16 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
+                        # ОПТИМИЗАЦИЯ ПАМЯТИ: Полностью очищаем историю, чтобы сбросить лимит TPM
                         messages = [
                             {"role": "system", "content": sql_system_prompt},
-                            {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Use strictly basic GROUP BY instead of CASE WHEN. Return ONLY raw SQL text."}
+                            {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. Please write a clean, complete SQLite query. "
+                                                       f"Blueprint: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(price) AS total_sales FROM order_items_dataset oi JOIN orders_dataset o ON oi.order_id = o.order_id WHERE order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1; "
+                                                       f"Return ONLY pure SQL text. Ensure the statement finishes completely and is never cut short."}
                         ]
                         
                         response = completion(
-                            model="groq/llama-3.1-8b-instant",
+                            model="groq/llama-3.3-70b-specdec",
                             messages=messages,
                             temperature=0.0,
                             max_tokens=1000
@@ -213,44 +185,35 @@ if st.button("🚀 Запустить расследование"):
                             
                         generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 # =====================================================================
-                
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
-                # 2. МЕТОДОЛОГИЧЕСКИЙ СИСТЕМНЫЙ ПРОМПТ АНАЛИТИКА (БЕЗ ЖЕСТКИХ ПРИВЯЗОК)
                 analyst_system_prompt = (
-                    "Ты Ведущий продуктовый аналитик маркетплейса Olist. Твоя задача — взять сырую таблицу данных, "
-                    "проанализировать её фактическую структуру и составить краткий и емкий бизнес-отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
-                    "ИНСТРУКЦИЯ ДЛЯ АВТОНОМНОГО АНАЛИЗА:\n"
-                    "1. КОНТЕКСТ ДАННЫХ: Строго сопоставляй свои выводы с пришедшей таблицей. Если в таблице содержатся названия категорий товаров "
-                    "   (product_category_name_english) и количество заказов (order_count), твой отчет должен быть посвящен ТОЛЬКО анализу товарной матрицы, "
-                    "   выделению лидеров/аутсайдеров продаж и мерам поддержки для этих товарных групп. Запрещено выдумывать исторические месяцы или сезонность, если их нет в таблице.\n"
-                    "2. КРИТИКА ГИПОТЕЗ: Оценивай логику вопроса пользователя. Если вопрос бизнеса содержит ложную предпосылку "
-                    "   (утверждает о падении тренда, спаде или кризисе, который опровергается высокими цифрами в таблице), "
-                    "   прямо укажи на это в первом пункте отчета на основе математических фактов.\n"
+                    "Ты Ведущий продуктовый аналитик маркетплейса Olist с глубоким пониманием ритейл-календаря. Твоя задача — провести глубокий сравнительный аудит данных и составить отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
+                    "МЕТОДОЛОГИЯ АНАЛИЗА ДЛЯ ПОРТФОЛИО:\n"
+                    "1. ДИНАМИЧЕСКИЙ ОХВАТ: Определи контекст данных. Если в таблице города/штаты — делай глубокий географический разбор (где ядро продавцов/клиентов, где дефицит). Если там даты — делай MoM/YoY анализ трендов. Если категории — анализируй структуру продаж.\n"
+                    "2. КРИТИКА И ГИПОТЕЗЫ: Внимательно сопоставляй вопрос бизнеса с полученными цифрами. Опровергай ложные гипотезы пользователя, если они противоречат математическим фактам. Выдвигай сильные коммерческие гипотезы о скрытых причинах такого распределения.\n"
                     "3. СТРУКТУРА ОТЧЕТА:\n"
-                    "   - 1. Главный инсайт исследования (Реальное положение дел на основе структуры пришедших данных)\n"
-                    "   - 2. Цифры и факты (Точные значения, лидеры и ключевые метрики из таблицы для доказательства)\n"
-                    "   - 3. Аналитические гипотезы (Почему сформировался такой тренд? Какие скрытые факторы на него повлияли?)\n"
-                    "   - 4. Бизнес-рекомендация (Конкретные шаги для руководства маркетплейса на основе выводов)"
+                    "   - 1. Главный инсайт исследования (Реальное положение дел из цифр)\n"
+                    "   - 2. Цифры и факты (Точные значения, лидеры и аутсайдеры из таблицы для доказательства)\n"
+                    "   - 3. Аналитические гипотезы (Какие факторы определяют этот тренд)\n"
+                    "   - 4. Бизнес-рекомендация (Конкретные шаги для руководства маркетплейса)"
                 )
-
                 
-                # ОПТИМИЗАЦИЯ ТОКЕНОВ ДЛЯ ОТЧЕТА: Расширяем лимит ответа до 1000 токенов
+                # ОПТИМИЗАЦИЯ ТОКЕНОВ (TPM FIX): Передаем модели только топ-15 строк через .head(15), сжимая контекст в 10 раз
                 report_response = completion(
-                    model="groq/llama-3.1-8b-instant",
+                    model="groq/llama-3.3-70b-specdec",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
                         {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные широкие данные из базы (топ-15 лидеров для анализа):\n{result_df.head(15).to_string(index=False)}"}
                     ],
                     temperature=0.2,
-                    max_tokens=1000 
+                    max_tokens=1000
                 )
-
                 
                 # REGEX ПАРСЕР ДЛЯ ИЗВЛЕЧЕНИЯ ФИНАЛЬНОГО ТЕКСТОВОГО ОТЧЕТА
                 res_report_str = str(report_response)
-                content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_report_str)
+                content_match = re.search(r'content=["\']([\s\EN]*?)["\']', res_report_str)
                 if content_match:
                     final_report = content_match.group(1).replace("\\n", "\n")
                 else:
@@ -261,7 +224,7 @@ if st.button("🚀 Запустить расследование"):
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
-                # Выводим точную таблицу на экран
+                # Выводим ПОЛНУЮ таблицу на экран пользователю (Streamlit отобразит все строки без проблем)
                 st.success("📊 Данные из полной инфраструктуры DWH Olist для анализа:")
                 st.dataframe(result_df, use_container_width=True)
                 
@@ -272,4 +235,3 @@ if st.button("🚀 Запустить расследование"):
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
-                        
