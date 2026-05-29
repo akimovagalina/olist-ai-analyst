@@ -40,82 +40,19 @@ if not os.path.exists(DB_PATH):
             st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
 # Карта схемы базы данных для ИИ
+# Оптимизированная по токенам ультра-компактная схема DWH для обхода RateLimit
 DATABASE_SCHEMA = """
-Table customers_dataset {
-  customer_id string [pk] -> Перекрестная ссылка к orders_dataset
-  customer_unique_id string -> Уникальный неизменяемый ID клиента
-  customer_zip_code_prefix integer -> Первые 5 цифр почтового индекса
-  customer_city string -> Город клиента
-  customer_state string -> Штат клиента
-}
-
-Table geolocation_dataset {
-  geolocation_zip_code_prefix integer [pk] -> Первые 5 цифр индекса для связи с клиентами/продавцами
-  geolocation_lat float -> Широта
-  geolocation_lng float -> Долгота
-  geolocation_city string -> Название города в геолокации
-  geolocation_state string -> Код штата в геолокации
-}
-
-Table orders_dataset {
-  order_id string [pk]
-  customer_id string -> Связь с таблицей клиентов
-  order_status string -> Статус заказа (delivered, shipped, cancelled и т.д.)
-  order_purchase_timestamp string -> Дата и время совершения покупки (Формат: YYYY-MM-DD HH:MM:SS)
-  order_approved_at string -> Время подтверждения оплаты
-  order_delivered_carrier_date string -> Время передачи заказа в службу доставки
-  order_delivered_customer_date string -> Фактическое время доставки клиенту
-  order_estimated_delivery_date string -> Обещанная (планируемая) дата доставки
-}
-
-Table order_items_dataset {
-  order_id string
-  order_item_id integer -> Порядковый номер товара внутри одного заказа
-  product_id string -> ID товара для связи с products_dataset
-  seller_id string -> ID продавца для связи с sellers_dataset
-  price float -> Цена за единицу товара
-}
-
-Table order_payments_dataset {
-  order_id string
-  payment_sequential integer -> Порядковый номер транзакции (если платили несколькими способами)
-  payment_type string -> Способ оплаты (credit_card, debit_card, boleto, voucher)
-  payment_installments integer -> Количество платежей по рассрочке
-  payment_value float -> Сумма, уплаченная в этой транзакции
-}
-
-Table review_dataset {
-  review_id string [pk]
-  order_id string -> Связь с заказом
-  review_score integer -> Оценка удовлетворенности клиента (от 1 до 5)
-  review_creation_date string -> Дата отправки анкеты отзыва
-  review_answer_timestamp string -> Фактическое время ответа клиента
-}
-
-Table products_dataset {
-  product_id string [pk]
-  product_category_name string -> Название категории на португальском языке
-  product_name_lenght integer
-  product_description_lenght integer
-  product_photos_qty integer
-  product_weight_g integer
-  product_length_cm integer
-  product_height_cm integer
-  product_width_cm integer
-}
-
-Table sellers_dataset {
-  seller_id string [pk]
-  seller_zip_code_prefix integer -> Index продавца
-  seller_city string -> Город продавца
-  seller_state string -> Штат продавца
-}
-
-Table product_category_name_translation {
-  product_category_name string [pk] -> Категория на португальском
-  product_category_name_english string -> Категория на английском (используй для вывода понятных категорий!)
-}
+Table customers_dataset { customer_id string [pk], customer_unique_id string, customer_zip_code_prefix int, customer_city string, customer_state string }
+Table geolocation_dataset { geolocation_zip_code_prefix int [pk], geolocation_lat float, geolocation_lng float, geolocation_city string, geolocation_state string }
+Table orders_dataset { order_id string [pk], customer_id string, order_status string, order_purchase_timestamp string, order_approved_at string, order_delivered_carrier_date string, order_delivered_customer_date string, order_estimated_delivery_date string }
+Table order_items_dataset { order_id string, order_item_id int, product_id string, seller_id string, price float }
+Table order_payments_dataset { order_id string, payment_sequential int, payment_type string, payment_installments int, payment_value float }
+Table review_dataset { review_id string [pk], order_id string, review_score int, review_creation_date string, review_answer_timestamp string }
+Table products_dataset { product_id string [pk], product_category_name string, product_name_lenght int, product_description_lenght int, product_photos_qty int, product_weight_g int, product_length_cm int, product_height_cm int, product_width_cm int }
+Table sellers_dataset { seller_id string [pk], seller_zip_code_prefix int, seller_city string, seller_state string }
+Table product_category_name_translation { product_category_name string [pk], product_category_name_english string }
 """
+
 def run_sql_query(sql_code: str) -> pd.DataFrame:
     """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
     conn = sqlite3.connect(DB_PATH)
