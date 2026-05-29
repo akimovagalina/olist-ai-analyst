@@ -236,14 +236,17 @@ if st.button("🚀 Запустить расследование"):
                 )
 
                 
+                # ОПТИМИЗАЦИЯ ТОКЕНОВ ДЛЯ ОТЧЕТА: Расширяем лимит ответа до 1000 токенов
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
-                        {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные точные данные из базы (топ-15 лидеров для анализа):\n{result_df.head(15).to_string(index=False)}"}
+                        {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные широкие данные из базы (топ-15 лидеров для анализа):\n{result_df.head(15).to_string(index=False)}"}
                     ],
-                    temperature=0.2
+                    temperature=0.2,
+                    max_tokens=1000  # <-- ДОБАВЬТЕ ЭТУ КРИТИЧЕСКУЮ СТРОКУ ТУТ, ЧТОБЫ УБРАТЬ ОБРЕЗКУ ТЕКСТА
                 )
+
                 
                 # REGEX ПАРСЕР ДЛЯ ИЗВЛЕЧЕНИЯ ФИНАЛЬНОГО ТЕКСТОВОГО ОТЧЕТА
                 res_report_str = str(report_response)
