@@ -9,7 +9,7 @@ from litellm import completion
 # Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
-st.title(" AI-Агент: Цифровой Детектив Маркетплейса Olist")
+st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Высокоскоростной ad-hoc аудит e-commerce данных с системой самоисправления SQL")
 
 # Безопасное считывание API Ключа из Streamlit Secrets
@@ -20,7 +20,7 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА БАЗЫ ДАННЫХ
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+DB_URL = "https://r2.dev"
 
 # Если на прошлых шагах скачался сломанный файл HTML-страницы (меньше 1 МБ), удаляем его
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 1000000:
@@ -82,7 +82,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     return df
 
 # Интерфейс ввода вопроса
-default_query = "Find top 3 payment types where customers use installments more than 6 times (payment_installments > 6). What is the average payment value for these orders, and does this financial behavior correlate with low review scores?"
+default_query = "Find out why sales fell in November 2017 using order_purchase_timestamp column."
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
 
 if st.button("🚀 Запустить расследование"):
@@ -93,21 +93,20 @@ if st.button("🚀 Запустить расследование"):
             try:
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
-                # Системный промпт, заставляющий модель выдать ТОЛЬКО чистый SQL-код
-                # Усиленный системный промпт с жестким ограничением диалекта SQLite
-                # Усиленный промпт аналитика с защитой от ложных гипотез пользователя
-                analyst_system_prompt = (
-                    "Ты Главный бизнес-аналитик маркетплейса Olist. Твоя задача — взять сырую таблицу данных, проанализировать её и составить краткий отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
-                    "КРИТИЧЕСКИЕ ПРАВИЛА АНАЛИЗА:\n"
-                    "1. КРИТИЧЕСКОЕ МЫШЛЕНИЕ: Никогда не верь гипотезе в вопросе пользователя слепо. Если пользователь спрашивает 'почему упали продажи', но цифры из базы показывают рост (например, огромный оборот в миллион рублей) — ты ОБЯЗАН прямо опровергнуть вопрос пользователя и написать: 'Внимание, продажи не упали, а выросли!'.\n"
-                    "2. ФОРМАТ ОТЧЕТА:\n"
-                    "   - 1. Суть проблемы или Главный инсайт (Реальный тренд из цифр)\n"
-                    "   - 2. Цифры и факты (Точные доказательства из таблицы)\n"
-                    "   - 3. Бизнес-рекомендация (Что делать руководству компании)"
+                # 1. СИСТЕМНЫЙ ПРОМПТ РАЗРАБОТЧИКА С ЖЕСТКИМ ОГРАНИЧЕНИЕМ ДИАЛЕКТА SQLite
+                sql_system_prompt = (
+                    f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this schema:\n{DATABASE_SCHEMA}\n\n"
+                    f"CRITICAL RULES:\n"
+                    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR FROM ...)' or 'EXTRACT(MONTH FROM ...)'.\n"
+                    f"2. To filter or group by dates/months/years in SQLite, ALWAYS use the 'strftime' function or 'LIKE' operator.\n"
+                    f"   Examples for November 2017:\n"
+                    f"   - WHERE order_purchase_timestamp LIKE '2017-11%'\n"
+                    f"   - WHERE strftime('%Y', order_purchase_timestamp) = '2017' AND strftime('%m', order_purchase_timestamp) = '11'\n"
+                    f"3. Return ONLY the raw SQL query. No markdown blocks, no explanations."
                 )
-              
+                
                 messages = [
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": sql_system_prompt},
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
                 ]
                 
@@ -119,10 +118,10 @@ if st.button("🚀 Запустить расследование"):
                 )
                 
                 # Универсальное извлечение текста (совместимость с объектами и словарями)
-                if hasattr(response, 'choices') and hasattr(response.choices[0], 'message'):
-                    generated_sql = response.choices[0].message.content
+                if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                    generated_sql = response.choices.message.content
                 else:
-                    generated_sql = response['choices'][0]['message']['content']
+                    generated_sql = response['choices']['message']['content']
                 
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
@@ -136,20 +135,20 @@ if st.button("🚀 Запустить расследование"):
                     messages.append({"role": "assistant", "content": generated_sql})
                     messages.append({
                         "role": "user", 
-                        "content": f"Your previous SQL query failed with this error: {str(sql_error)}. Please analyze the database schema carefully, correct the table names or columns (ensure you JOIN order_payments_dataset if you need payment details like type or installments), and provide the fixed SQLite query. Return ONLY the raw SQL without any extra text."
+                        "content": f"Your previous SQL query failed with this error: {str(sql_error)}. Please analyze the database schema carefully, correct the table names or columns (ensure you use proper SQLite functions like strftime or LIKE for dates instead of EXTRACT), and provide the fixed SQLite query. Return ONLY the raw SQL without any extra text."
                     })
                     
-                    # Попытка №2: Модель анализирует свою ошибку и исправляет код
+                    # Попытка №2: Модель исправляет код
                     response = completion(
                         model="groq/llama-3.1-8b-instant",
                         messages=messages,
                         temperature=0.1
                     )
                     
-                    if hasattr(response, 'choices') and hasattr(response.choices[0], 'message'):
-                        generated_sql = response.choices[0].message.content
+                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
+                        generated_sql = response.choices.message.content
                     else:
-                        generated_sql = response['choices'][0]['message']['content']
+                        generated_sql = response['choices']['message']['content']
                         
                     generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                     
@@ -161,33 +160,38 @@ if st.button("🚀 Запустить расследование"):
                 
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
-                # Отдаем полученные точные цифры модели, чтобы она красиво расписала выводы для директора
+                # 2. СИСТЕМНЫЙ ПРОМПТ АНАЛИТИКА С ЗАЩИТОЙ ОТ МАНИПУЛЯЦИЙ И КРИТИЧЕСКИМ МЫШЛЕНИЕМ
+                analyst_system_prompt = (
+                    "Ты Главный бизнес-аналитик маркетплейса Olist. Твоя задача — взять сырую таблицу данных, проанализировать её и составить краткий и емкий бизнес-отчет СТРОГО НА РУССКОМ ЯЗЫКЕ.\n\n"
+                    "КРИТИЧЕСКИЕ ПРАВИЛА АНАЛИЗА:\n"
+                    "1. КРИТИЧЕСКОЕ МЫШЛЕНИЕ: Никогда не верь гипотезе в вопросе пользователя слепо. Если пользователь спрашивает 'почему упали продажи', но цифры из базы показывают огромные значения оборота (например, около миллиона или рост по сравнению с другими периодами) — ты ОБЯЗАН прямо опровергнуть вопрос пользователя и написать: 'Внимание, продажи в этот период не упали, а наоборот показали пиковые значения!'.\n"
+                    "2. ФОРМАТ ОТЧЕТА:\n"
+                    "   - 1. Суть проблемы или Главный инсайт (Реальный тренд из полученных цифр)\n"
+                    "   - 2. Цифры и факты (Доказательства из таблицы с точными значениями)\n"
+                    "   - 3. Бизнес-рекомендация (Что делать руководству компании)"
+                )
+                
+                # Отдаем точные цифры модели для формирования финального отчета
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
-                        {"role": "system", "content": analyst_system_prompt}, # <-- ПОДСТАВИЛИ ТУТ
+                        {"role": "system", "content": analyst_system_prompt},
                         {"role": "user", "content": f"Вопрос пользователя: {user_query}\n\nПолученные точные данные из базы:\n{result_df.to_string(index=False)}"}
                     ],
                     temperature=0.2
                 )
-
                 
                 # Универсальное извлечение текста отчета
-                if hasattr(report_response, 'choices') and hasattr(report_response.choices[0], 'message'):
-                    final_report = report_response.choices[0].message.content
+                if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
+                    final_report = report_response.choices.message.content
                 else:
-                    final_report = report_response['choices'][0]['message']['content']
+                    final_report = report_response['choices']['message']['content']
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
                 # Выводим точную таблицу на экран
-                st.success("📊 Точные цифры из базы данных маркетплейса Olist:")
-                st.dataframe(result_df, use_container_width=True)
-                
-                # Выводим текстовый отчет
-                st.subheader(" Финальный бизнес-отчет аналитика:")
+                st.subheader("🎯 Финальный бизнес-отчет аналитика:")
                 st.markdown(final_report)
-                
-            except Exception as e:
+                except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
