@@ -130,7 +130,7 @@ if st.button("🚀 Запустить расследование"):
                 
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
-                                try:
+                try:
                     st.code(generated_sql, language="sql")
                     result_df = run_sql_query(generated_sql)
                 except Exception as sql_error:
