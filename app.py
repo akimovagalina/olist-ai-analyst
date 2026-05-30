@@ -139,7 +139,7 @@ if st.button("🚀 Запустить расследование"):
                             
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
-                                        except Exception as sql_error:
+                        except Exception as sql_error:
                         if attempts == max_attempts:
                             st.warning("🔄 Включен интеллектуальный режим динамического восстановления SQL...")
                             
