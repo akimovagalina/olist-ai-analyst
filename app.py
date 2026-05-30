@@ -5,11 +5,11 @@ import streamlit as st
 import asyncio
 import urllib.request
 import ssl
-import re  # Безопасный парсинг регулярных выражений для извлечения ответов API
+import re  # Safe regular expression parsing for raw API data extraction
 from litellm import completion
 
 
-# Настройка внешнего вида страницы Streamlit
+# Configure Streamlit presentation layer
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
 
@@ -17,7 +17,7 @@ st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Ма
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
 
-# Безопасное считывание API Ключа из Streamlit Secrets
+# Secure background environmental setup for credentials
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
@@ -31,7 +31,7 @@ DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1
 
 
 
-# Принудительный сброс кэша, если обнаружена старая урезанная база данных
+# Force cache flush if an outdated, clipped database asset is detected
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
    os.remove(DB_PATH)
 
@@ -48,57 +48,25 @@ if not os.path.exists(DB_PATH):
            st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
 
-# =====================================================================
-# КОМПЛЕКСНАЯ СЕМАНТИЧЕСКАЯ КАРТА СВЯЗЕЙ (ENTERPRISE DATA CATALOG) ДЛЯ ИИ
-# =====================================================================
+# Token-optimized ultra-compact data schema map for LLM execution
 DATABASE_SCHEMA = """
-Table customers_dataset {
- customer_id string [pk], customer_unique_id string, customer_zip_code_prefix int, customer_city string, customer_state string
-}
-Table geolocation_dataset {
- geolocation_zip_code_prefix int [pk], geolocation_lat float, geolocation_lng float, geolocation_city string, geolocation_state string
-}
-Table orders_dataset {
- order_id string [pk], customer_id string, order_status string, order_purchase_timestamp string, order_approved_at string, order_delivered_carrier_date string, order_delivered_customer_date string, order_estimated_delivery_date string
-}
-Table order_items_dataset {
- order_id string, order_item_id int, product_id string, seller_id string, price float
-}
-Table order_payments_dataset {
- order_id string, payment_sequential int, payment_type string, payment_installments int, payment_value float
-}
-Table review_dataset {
- review_id string [pk], order_id string, review_score int, review_creation_date string, review_answer_timestamp string
-}
-Table products_dataset {
- product_id string [pk], product_category_name string, product_name_lenght int, product_description_lenght int, product_photos_qty int, product_weight_g int, product_length_cm int, product_height_cm int, product_width_cm int
-}
-Table sellers_dataset {
- seller_id string [pk], seller_zip_code_prefix int, seller_city string, seller_state string
-}
-Table product_category_name_translation {
- product_category_name string [pk], product_category_name_english string
-}
+Table customers_dataset { customer_id string [pk], customer_unique_id string, customer_zip_code_prefix int, customer_city string, customer_state string }
+Table geolocation_dataset { geolocation_zip_code_prefix int [pk], geolocation_lat float, geolocation_lng float, geolocation_city string, geolocation_state string }
+Table orders_dataset { order_id string [pk], customer_id string, order_status string, order_purchase_timestamp string, order_approved_at string, order_delivered_carrier_date string, order_delivered_customer_date string, order_estimated_delivery_date string }
+Table order_items_dataset { order_id string, order_item_id int, product_id string, seller_id string, price float }
+Table order_payments_dataset { order_id string, payment_sequential int, payment_type string, payment_installments int, payment_value float }
+Table review_dataset { review_id string [pk], order_id string, review_score int, review_creation_date string, review_answer_timestamp string }
+Table products_dataset { product_id string [pk], product_category_name string, product_name_lenght int, product_description_lenght int, product_photos_qty int, product_weight_g int, product_length_cm int, product_height_cm int, product_width_cm int }
+Table sellers_dataset { seller_id string [pk], seller_zip_code_prefix int, seller_city string, seller_state string }
+Table product_category_name_translation { product_category_name string [pk], product_category_name_english string }
 
 
---- STRICT RELATIONSHIPS MAP (USE ONLY THESE KEYS FOR JOINS) ---
-1. orders_dataset.customer_id = customers_dataset.customer_id
-2. order_items_dataset.order_id = orders_dataset.order_id
-3. order_payments_dataset.order_id = orders_dataset.order_id
-4. review_dataset.order_id = orders_dataset.order_id
-5. order_items_dataset.product_id = products_dataset.product_id
-6. order_items_dataset.seller_id = sellers_dataset.seller_id
-7. products_dataset.product_category_name = product_category_name_translation.product_category_name
-8. customers_dataset.customer_zip_code_prefix = geolocation_dataset.geolocation_zip_code_prefix
-9. sellers_dataset.seller_zip_code_prefix = geolocation_dataset.geolocation_zip_code_prefix
-
-
-CRITICAL RULE: To link reviews (review_dataset) or orders (orders_dataset) with product data (products_dataset or translations), you MUST join them through order_items_dataset using order_id and product_id! Never join them directly!
+CRITICAL RELATION: To get category name in English, always JOIN products_dataset WITH product_category_name_translation ON p.product_category_name = t.product_category_name and SELECT t.product_category_name_english!
 """
 
 
 def run_sql_query(sql_code: str) -> pd.DataFrame:
-   """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
+   """Executes SQL against SQLite with micro-indexing injection to prevent database timeouts."""
    conn = sqlite3.connect(DB_PATH)
    cursor = conn.cursor()
    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_id ON customers_dataset(customer_id);")
@@ -119,7 +87,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
    return df
 
 
-# Интерфейс ввода вопроса
+# Main query panel setup
 default_query = "Define the customer categories or geographic customer segments by states and order count."
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
 
@@ -133,11 +101,11 @@ if st.button("🚀 Запустить расследование"):
                st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
               
                sql_system_prompt = (
-                   f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema and key relationships:\n{DATABASE_SCHEMA}\n\n"
+                   f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                    f"CRITICAL RULES:\n"
                    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
                    f"2. ULTRA-COMPACT CODE: Keep the query as short as possible (maximum 5 lines). NEVER use verbose CASE WHEN statements.\n"
-                   f"3. STRICT JOINS: Follow the RELATIONSHIPS MAP exactly. Double check that column keys exist in the schema before joining tables.\n"
+                   f"3. GROUPING STANDARD: Always use standard `GROUP BY` and standard aggregation columns.\n"
                    f"4. Return ONLY the raw SQL query string. No markdown blocks, no conversational explanations, no object wrappers."
                )
               
@@ -164,6 +132,7 @@ if st.button("🚀 Запустить расследование"):
                        generated_sql = response['choices']['message']['content']
               
                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+              
                # =====================================================================
                # МНОГОШАГОВЫЙ ДИНАМИЧЕСКИЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
                # =====================================================================
@@ -186,12 +155,10 @@ if st.button("🚀 Запустить расследование"):
                        if attempts == max_attempts:
                            st.warning("🔄 Включен интеллектуальный режим динамического восстановления SQL...")
                           
-                           # Ультра-короткий промпт БЕЗ жестких дат. ИИ создает простой SQL строго ПОД ТЕКУЩИЙ ВОПРОС пользователя
+                           # Ультра-короткий промпт БЕЗ жестких дат. ИИ создаст простой SQL строго ПОД НАШ ТЕКУЩИЙ ВОПРОС!
                            fallback_prompt = (
-                               f"The user asked: '{user_query}'. Your complex query failed with error: {str(sql_error)}.\n"
-                               f"Write the SHORTEST possible valid SQLite query (max 3-4 lines) to fetch clean rows for this question.\n"
-                               f"Rely strictly on this relationships schema blueprint map:\n{DATABASE_SCHEMA}\n"
-                               f"Return ONLY raw pure SQL code text. No explanations."
+                               f"The user asked: '{user_query}'. Write the SHORTEST possible valid SQLite query (max 3 lines) to fetch rows for this question. "
+                               f"Use basic SELECT, GROUP BY and LIMIT 10 based on this schema:\n{DATABASE_SCHEMA}\nReturn ONLY raw pure SQL code text."
                            )
                           
                            try:
@@ -209,8 +176,8 @@ if st.button("🚀 Запустить расследование"):
                                    generated_sql = response_fallback['choices']['message']['content']
                                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                            except Exception:
-                               # Стопроцентный безусловный сейв-контур (базовый срез заказов), если даже простой упал
-                               generated_sql = "SELECT order_status, COUNT(order_id) AS order_count FROM orders_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
+                               # Абсолютный сейв-контур (базовый срез клиентов)
+                               generated_sql = "SELECT customer_state, COUNT(customer_id) AS total_customers FROM customers_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
                               
                            st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
                            st.code(generated_sql, language="sql")
@@ -220,15 +187,11 @@ if st.button("🚀 Запустить расследование"):
                           
                        st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                       
-                       # ОПТИМИЗАЦИЯ ПАМЯТИ: Сбрасываем контекст, но ЖЕСТКО передаем оригинальный вопрос менеджера заново!
+                       # Сбрасываем память контекста для защиты от TPM лимитов
                        messages = [
                            {"role": "system", "content": sql_system_prompt},
-                           {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
-                                                      f"Please write a clean, complete SQLite query to answer the manager's original question: '{user_query}'. "
-                                                      f"Ensure the query finishes completely, matches the schema, and does NOT cut short. Return ONLY raw pure SQL code."}
+                           {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Use strictly basic GROUP BY instead of CASE WHEN. Return ONLY raw SQL text."}
                        ]
-
-
                       
                        response = completion(
                            model="groq/llama-3.1-8b-instant",
@@ -262,13 +225,13 @@ if st.button("🚀 Запустить расследование"):
                    "2. КРИТИКА ГИПОТЕЗ: Оцени вопрос пользователя. Если бизнес утверждает, что продажи упали, а цифры в таблице показывают кратный рост или стабильность — "
                    "   ты ОБЯЗАН прямо опровергнуть вопрос пользователя в блоке 'Главный инсайт'.\n"
                    "3. НЕЗАВИСИМЫЕ ГИПОТЕЗЫ: На основе аномальных пиков или провалов (например, взрывной рост в конце ноября или доминирование конкретного города) "
-                   "   выдвини собственные сильные гипотезы о причинах (распродажи вроде Черной пятницы, сезонный бум, плотность населения, задержки доставок) без каких-либо подсказок со стороны кода.\n\n"
+                   "   выдвини собственные сильные гипотезы о причинах (распродажи вроде Черной пятницы, сезонный бум, плотность населения) без каких-либо подсказок со стороны кода.\n\n"
                    "ОБЯЗАТЕЛЬНЫЙ ФОРМАТ ВЫВОДА (Строго Markdown-таблица для экономии токенов):\n"
                    "| Раздел отчета | Аналитическое заключение ИИ-агента (Выводы полностью формулируешь САМ) |\n"
                    "| :--- | :--- |\n"
                    "| **🎯 1. Главный инсайт** | *Твое независимое заключение и опровержение/подтверждение гипотезы пользователя* |\n"
                    "| **📊 2. Главные цифры** | *Ключевые лидеры, пиковые значения или проценты изменений, которые ты САМ высчитал по таблице* |\n"
-                   "| **💡 3. Твои гипотезы** | *Выдвини 2 независимые коммерческие гипотезы причин такого распределения (сезонность, Черная пятница, праздники, логистика)* |\n"
+                   "| **💡 3. Твои гипотезы** | *Выдвини 2 независимые коммерческие гипотезы причин такого распределения (сезонность, Черная пятница, праздники)* |\n"
                    "| **🚀 4. Рекомендация** | *3 конкретных шага для топ-менеджмента на основе твоих личных выводов* |"
                )
               
@@ -305,3 +268,8 @@ if st.button("🚀 Запустить расследование"):
            except Exception as e:
                status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                st.error(f"Произошел технический сбой: {e}")
+
+
+
+
+
