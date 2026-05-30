@@ -145,8 +145,14 @@ if st.button("🚀 Запустить расследование"):
                             
                             # Ультра-короткий промпт БЕЗ жестких дат. ИИ создаст простой SQL строго ПОД НАШ ТЕКУЩИЙ ВОПРОС!
                             fallback_prompt = (
-                                f"The user asked: '{user_query}'. Write the SHORTEST possible valid SQLite query (max 3 lines) to fetch rows for this question. "
-                                f"Use basic SELECT, GROUP BY and LIMIT 10 based on this schema:\n{DATABASE_SCHEMA}\nReturn ONLY raw pure SQL code text."
+                                f"The user asked: '{user_query}'. Your complex query crashed due to an API cutoff error.\n"
+                                f"Write the SHORTEST valid SQLite query (max 4 lines) to pull clean columns matching this question.\n"
+                                f"CRITICAL CONSTRAINTS:\n"
+                                f"- Reviews score is `r.review_score` from `review_dataset r`.\n"
+                                f"- Order delivery dates are `o.order_purchase_timestamp` or `o.order_delivered_customer_date` from `orders_dataset o`.\n"
+                                f"- Category translations are `t.product_category_name_english` from `product_category_name_translation t`.\n"
+                                f"- Join products strictly via `order_items_dataset oi` on product_id.\n"
+                                f"Use plain SELECT, plain JOIN, GROUP BY and LIMIT 10. Return ONLY raw pure SQL code text."
                             )
                             
                             try:
