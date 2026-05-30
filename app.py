@@ -54,6 +54,7 @@ Table product_category_name_translation { product_category_name string [pk], pro
 
 CRITICAL RELATION: To get category name in English, always JOIN products_dataset WITH product_category_name_translation ON p.product_category_name = t.product_category_name and SELECT t.product_category_name_english!
 """
+
 def run_sql_query(sql_code: str) -> pd.DataFrame:
     """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
     conn = sqlite3.connect(DB_PATH)
@@ -76,8 +77,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     return df
 
 # Интерфейс ввода вопроса
-# Интерфейс ввода вопроса
-default_query = "Find out why sales fell in November 2017 using order_purchase_timestamp column."
+default_query = "Define the customer categories or geographic customer segments by states and order count."
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
 
 if st.button("🚀 Запустить расследование"):
@@ -92,11 +92,9 @@ if st.button("🚀 Запустить расследование"):
                     f"You are a Senior SQLite Developer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)'.\n"
-                    f"2. KEEP IT CONCISE: Write highly compact queries under 6 lines.\n"
-                    f"3. METHODOLOGY: To track historical trends around a target date, always select blocks using `SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month` "
-                    f"   and pull a broader window (e.g. LIKE '2017%') so the analyst can perform Month-over-Month context comparison.\n"
-                    f"4. Ensure columns constructed in your SELECT clause perfectly correlate inside your GROUP BY boundaries.\n"
-                    f"5. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
+                    f"2. ULTRA-COMPACT CODE: Keep the query as short as possible (maximum 5 lines). NEVER use verbose CASE WHEN statements.\n"
+                    f"3. GROUPING STANDARD: Always use standard `GROUP BY` and standard aggregation columns.\n"
+                    f"4. Return ONLY the raw SQL query string. No markdown blocks, no conversational explanations, no object wrappers."
                 )
                 
                 messages = [
@@ -124,7 +122,7 @@ if st.button("🚀 Запустить расследование"):
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
                 # =====================================================================
-                # МНОГОШАГОВЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
+                # МНОГОШАГОВЫЙ ДИНАМИЧЕСКИЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
                 # =====================================================================
                 attempts = 0
                 max_attempts = 3
@@ -141,16 +139,35 @@ if st.button("🚀 Запустить расследование"):
                             
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
-                    except Exception as sql_error:
+                                        except Exception as sql_error:
                         if attempts == max_attempts:
-                            st.warning("🔄 Включен интеллектуальный режим восстановления SQL-запроса...")
-                            generated_sql = (
-                                "SELECT SUBSTR(o.order_purchase_timestamp, 1, 7) AS sales_month, "
-                                "SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS num_orders "
-                                "FROM orders_dataset o JOIN order_items_dataset oi ON o.order_id = oi.order_id "
-                                "WHERE o.order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1;"
+                            st.warning("🔄 Включен интеллектуальный режим динамического восстановления SQL...")
+                            
+                            # Ультра-короткий промпт БЕЗ жестких дат. ИИ создаст простой SQL строго ПОД НАШ ТЕКУЩИЙ ВОПРОС!
+                            fallback_prompt = (
+                                f"The user asked: '{user_query}'. Write the SHORTEST possible valid SQLite query (max 3 lines) to fetch rows for this question. "
+                                f"Use basic SELECT, GROUP BY and LIMIT 10 based on this schema:\n{DATABASE_SCHEMA}\nReturn ONLY raw pure SQL code text."
                             )
-                            st.markdown("**🛡️ Резервный отказоустойчивый SQL-запрос для извлечения широкого контекста:**")
+                            
+                            try:
+                                response_fallback = completion(
+                                    model="groq/llama-3.1-8b-instant",
+                                    messages=[{"role": "user", "content": fallback_prompt}],
+                                    temperature=0.0,
+                                    max_tokens=150
+                                )
+                                res_fb_str = str(response_fallback)
+                                fb_match = re.search(r'content=["\']([\s\S]*?)["\']', res_fb_str)
+                                if fb_match:
+                                    generated_sql = fb_match.group(1).replace("\\n", "\n")
+                                else:
+                                    generated_sql = response_fallback['choices']['message']['content']
+                                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+                            except Exception:
+                                # Абсолютный сейв-контур (базовый срез клиентов)
+                                generated_sql = "SELECT customer_state, COUNT(customer_id) AS total_customers FROM customers_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
+                                
+                            st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
                             st.code(generated_sql, language="sql")
                             result_df = run_sql_query(generated_sql)
                             sql_success = True
@@ -158,11 +175,10 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
+                        # Сбрасываем память контекста для защиты от TPM лимитов
                         messages = [
                             {"role": "system", "content": sql_system_prompt},
-                            {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. Please write a clean, complete SQLite query. "
-                                                       f"Blueprint: SELECT SUBSTR(order_purchase_timestamp, 1, 7) AS sales_month, SUM(price) AS total_sales FROM order_items_dataset oi JOIN orders_dataset o ON oi.order_id = o.order_id WHERE order_purchase_timestamp LIKE '2017%' GROUP BY 1 ORDER BY 1; "
-                                                       f"Return ONLY pure SQL text. Ensure the statement finishes completely."}
+                            {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Use strictly basic GROUP BY instead of CASE WHEN. Return ONLY raw SQL text."}
                         ]
                         
                         response = completion(
