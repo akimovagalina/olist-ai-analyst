@@ -105,12 +105,14 @@ if st.button("🚀 Запустить расследование"):
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
                     f"2. ULTRA-COMPACT CODE: Keep the query under 6 lines. Never use verbose multi-line CASE WHEN statements.\n"
-                    f"3. FEW-SHOT LEARNING PATTERN (How to calculate delivery time correlation in integer days):\n"
-                    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, write strictly like this:\n"
-                    f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 ORDER BY 1 ASC LIMIT 15;\n"
-                    f"4. Follow the relational joins constraints map inside the catalog exactly. Double check that column mappings match table aliases before execution.\n"
+                    f"3. CORRECT DELIVERY TIME PATTERN (Strictly business-valid logic):\n"
+                    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, you MUST calculate the delay strictly as the difference between ACTUAL delivery to customer and ESTIMATED delivery date:\n"
+                    f"   `CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days`.\n"
+                    f"   Example query layout: SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
+                    f"4. Follow the relational joins constraints map inside the catalog exactly. Never use review_creation_date for logistics delay tracking.\n"
                     f"5. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
+
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
@@ -223,29 +225,41 @@ if st.button("🚀 Запустить расследование"):
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
-                # ИИ ТЕПЕРЬ ДУМАЕТ ПОЛНОСТЬЮ САМ, НО ОФОРМЛЯЕТ В ВИДЕ ПЛОТНОЙ ТАБЛИЦЫ ДЛЯ ОБХОДА ОБРЕЗКИ
+                # УНИВЕРСАЛЬНЫЙ ПРОМПТ АНАЛИТИКА ПОД ЛЮБЫЕ ИЗМЕРЕНИЯ БИЗНЕСА
                 analyst_system_prompt = (
                     "Ты Ведущий продуктовый аналитик маркетплейса Olist с глубоким критическим мышлением. Твоя задача — изучить пришедшую таблицу данных, "
                     "самостоятельно выявить коммерческий тренд и составить емкий бизнес-отчет СТРОГО НА РУССКОМ ЯЗЫКЕ в виде Markdown-таблицы.\n\n"
                     "ПРАВИЛА АВТОНОМНОГО АНАЛИЗА:\n"
-                    "1. СРАВНИВАЙ СТРОКИ: Самостоятельно глазами сопоставь показатели в таблице, выяви математические зависимости и закономерности.\n"
-                    "2. НЕЗАВИСИМЫЕ ГИПОТЕЗЫ: На основе аномальных пиков или провалов (например, падение оценок при росте дней задержки) "
-                    "   выдвини собственные сильные гипотезы о причинах без каких-либо подсказок со стороны кода (проблемы логистики, ожидания клиентов, качество хабов).\n\n"
+                    "1. СРАВНИВАЙ СТРОКИ: Самостоятельно глазами сопоставь показатели в таблице, выяви математические зависимости, спады, рекорды и закономерности.\n"
+                    "2. НЕЗАВИСИМЫЕ ГИПОТЕЗЫ: На основе аномальных пиков или провалов выдвини собственные сильные гипотезы о коммерческих причинах тренда без каких-либо подсказок со стороны кода.\n\n"
                     "ОБЯЗАТЕЛЬНЫЙ ФОРМАТ ВЫВОДА (Строго Markdown-таблица для экономии токенов):\n"
                     "| Раздел отчета | Аналитическое заключение ИИ-агента (Выводы полностью формулируешь САМ) |\n"
                     "| :--- | :--- |\n"
                     "| **🎯 1. Главный инсайт** | *Твое независимое заключение о тренде из таблицы* |\n"
                     "| **📊 2. Главные цифры** | *Ключевые лидеры, пиковые значения или проценты изменений, которые ты видишь в таблице* |\n"
-                    "| **💡 3. Твои гипотезы** | *Выдвини 2 независимые коммерческие гипотезы причин такого распределения (логистика, качество, ожидания)* |\n"
+                    "| **💡 3. Твои гипотезы** | *Выдвини 2 независимые коммерческие гипотезы причин такого распределения (логистика, сезонность, поведение клиентов)* |\n"
                     "| **🚀 4. Рекомендация** | *3 конкретных шага для топ-менеджмента на основе твоих личных выводов* |"
                 )
                 
-                # ОПТИМИЗАЦИЯ ТОКЕНОВ (TPM SAFE): Исключаем тяжелый технический user_query из контекста аналитика
+                # ДИНАМИЧЕСКАЯ УНИВЕРСАЛЬНАЯ СЖАТИЕ КОНТЕКСТА ПО ОБЪЕМУ ДАННЫХ (БЕЗ ЖЕСТКОГО КОДА)
+                try:
+                    # Находим все числовые колонки (int и float)
+                    numeric_cols = result_df.select_dtypes(include=['number']).columns.tolist()
+                    if numeric_cols:
+                        # Находим числовую колонку с максимальной суммой значений (ядро объемов данных)
+                        sort_target = max(numeric_cols, key=lambda col: result_df[col].sum())
+                        compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
+                    else:
+                        compressed_df = result_df.head(15)
+                except Exception:
+                    compressed_df = result_df.head(15)
+                
+                # Отправляем в ИИ-аналитик только очищенную репрезентативную макро-картину
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
-                        {"role": "user", "content": f"Полученные из базы транзакционные данные для твоего личного бизнес-анализа:\n{result_df.head(15).to_string(index=False)}"}
+                        {"role": "user", "content": f"Полученные из базы транзакционные данные для твоего личного бизнес-анализа:\n{compressed_df.to_string(index=False)}"}
                     ],
                     temperature=0.2,
                     max_tokens=800
@@ -263,7 +277,7 @@ if st.button("🚀 Запустить расследование"):
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
-                # Выводим ПОЛНУЮ таблицу на экран пользователю
+                # Выводим ПОЛНУЮ таблицу на экран пользователю без каких-либо ограничений срезов
                 st.success("📊 Данные из полной инфраструктуры DWH Olist для анализа:")
                 st.dataframe(result_df, use_container_width=True)
                 
@@ -274,4 +288,3 @@ if st.button("🚀 Запустить расследование"):
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
-
