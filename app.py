@@ -5,16 +5,16 @@ import streamlit as st
 import asyncio
 import urllib.request
 import ssl
-import re  # Безопасный парсинг регулярных выражений для извлечения ответов API
+import re  # Safe regular expression parsing for raw API data extraction
 from litellm import completion
 
-# Настройка внешнего вида страницы Streamlit
+# Configure Streamlit presentation layer
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
 st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
-# Безопасное считывание API Ключа из Streamlit Secrets
+# Secure background environmental setup for credentials
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
@@ -25,7 +25,7 @@ DB_PATH = "olist.db"
 DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 
-# Принудительный сброс кэша, если обнаружена старая урезанная база данных
+# Force cache flush if an outdated, clipped database asset is detected
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
     os.remove(DB_PATH)
 
@@ -40,7 +40,7 @@ if not os.path.exists(DB_PATH):
         except Exception as e:
             st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
 
-# Карта схемы базы данных для ИИ (Оптимизированная по токенам компактная разметка)
+# Token-optimized ultra-compact data schema map for LLM execution
 DATABASE_SCHEMA = """
 Table customers_dataset { customer_id string [pk], customer_unique_id string, customer_zip_code_prefix int, customer_city string, customer_state string }
 Table geolocation_dataset { geolocation_zip_code_prefix int [pk], geolocation_lat float, geolocation_lng float, geolocation_city string, geolocation_state string }
@@ -56,7 +56,7 @@ CRITICAL RELATION: To get category name in English, always JOIN products_dataset
 """
 
 def run_sql_query(sql_code: str) -> pd.DataFrame:
-    """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
+    """Executes SQL against SQLite with micro-indexing injection to prevent database timeouts."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_id ON customers_dataset(customer_id);")
@@ -76,7 +76,7 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     conn.close()
     return df
 
-# Интерфейс ввода вопроса
+# Main query panel setup
 default_query = "Define the customer categories or geographic customer segments by states and order count."
 user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
 
@@ -123,82 +123,6 @@ if st.button("🚀 Запустить расследование"):
                 
                 # =====================================================================
                 # МНОГОШАГОВЫЙ ДИНАМИЧЕСКИЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
-                # =====================================================================
-                attempts = 0
-                max_attempts = 3
-                sql_success = False
-                
-                while attempts < max_attempts and not sql_success:
-                    attempts += 1
-                    try:
-                        if attempts == 1:
-                            st.code(generated_sql, language="sql")
-                        else:
-                            st.markdown(f"**🔄 Попытка самоисправления №{attempts-1}:**")
-                            st.code(generated_sql, language="sql")
-                            
-                        result_df = run_sql_query(generated_sql)
-                        sql_success = True
-                        except Exception as sql_error:
-                        if attempts == max_attempts:
-                            st.warning("🔄 Включен интеллектуальный режим динамического восстановления SQL...")
-                            
-                            # Ультра-короткий промпт БЕЗ жестких дат. ИИ создаст простой SQL строго ПОД НАШ ТЕКУЩИЙ ВОПРОС!
-                            fallback_prompt = (
-                                f"The user asked: '{user_query}'. Write the SHORTEST possible valid SQLite query (max 3 lines) to fetch rows for this question. "
-                                f"Use basic SELECT, GROUP BY and LIMIT 10 based on this schema:\n{DATABASE_SCHEMA}\nReturn ONLY raw pure SQL code text."
-                            )
-                            
-                            try:
-                                response_fallback = completion(
-                                    model="groq/llama-3.1-8b-instant",
-                                    messages=[{"role": "user", "content": fallback_prompt}],
-                                    temperature=0.0,
-                                    max_tokens=150
-                                )
-                                res_fb_str = str(response_fallback)
-                                fb_match = re.search(r'content=["\']([\s\S]*?)["\']', res_fb_str)
-                                if fb_match:
-                                    generated_sql = fb_match.group(1).replace("\\n", "\n")
-                                else:
-                                    generated_sql = response_fallback['choices']['message']['content']
-                                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
-                            except Exception:
-                                # Абсолютный сейв-контур (базовый срез клиентов)
-                                generated_sql = "SELECT customer_state, COUNT(customer_id) AS total_customers FROM customers_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
-                                
-                            st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
-                            st.code(generated_sql, language="sql")
-                            result_df = run_sql_query(generated_sql)
-                            sql_success = True
-                            break
-                            
-                        st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
-                        
-                        # Сбрасываем память контекста для защиты от TPM лимитов
-                        messages = [
-                            {"role": "system", "content": sql_system_prompt},
-                            {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Use strictly basic GROUP BY instead of CASE WHEN. Return ONLY raw SQL text."}
-                        ]
-                        
-                        response = completion(
-                            model="groq/llama-3.1-8b-instant",
-                            messages=messages,
-                            temperature=0.0,
-                            max_tokens=400
-                        )
-                        
-                        res_str = str(response)
-                        content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
-                        if content_match:
-                            generated_sql = content_match.group(1).replace("\\n", "\n")
-                        else:
-                            if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                                generated_sql = response.choices.message.content
-                            else:
-                                generated_sql = response['choices']['message']['content']
-                            
-                        generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 # =====================================================================
                 
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
@@ -256,4 +180,3 @@ if st.button("🚀 Запустить расследование"):
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
-
