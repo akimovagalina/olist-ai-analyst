@@ -207,11 +207,14 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                        # Сбрасываем память контекста для защиты от TPM лимитов
+                        # ОПТИМИЗАЦИЯ ПАМЯТИ: Сбрасываем контекст, но ЖЕСТКО передаем оригинальный вопрос менеджера заново!
                         messages = [
                             {"role": "system", "content": sql_system_prompt},
-                            {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Follow the RELATIONSHIPS MAP constraints exactly. Return ONLY raw SQL text."}
+                            {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
+                                                       f"Please write a clean, complete SQLite query to answer the manager's original question: '{user_query}'. "
+                                                       f"Ensure the query finishes completely, matches the schema, and does NOT cut short. Return ONLY raw pure SQL code."}
                         ]
+
                         
                         response = completion(
                             model="groq/llama-3.1-8b-instant",
