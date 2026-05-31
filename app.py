@@ -103,21 +103,22 @@ if st.button("🚀 Запустить расследование"):
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
                 # FEW-SHOT SQL ПРОМПТ: Учим ИИ подневному реляционному анализу на жестких примерах
+                                # АНТИЦЕНЗУРНЫЙ СИСТЕМНЫЙ ПРОМПТ С ЖЕСТКИМ ЗАПРЕТОМ НА ОПЕРАТОР РАВЕНСТВА ДЛЯ ТЕКСТА
                 sql_system_prompt = (
                     f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema and join keys:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
                     f"2. ULTRA-COMPACT CODE: Keep the query under 6 lines. Never use verbose multi-line CASE WHEN statements.\n"
-                    f"3. CORRECT DELIVERY TIME PATTERN (Strictly business-valid logic):\n"
-                    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, you MUST calculate the delay strictly as the difference between ACTUAL delivery to customer and ESTIMATED delivery date:\n"
-                    f"   `CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days`.\n"
-                    f"   Example query layout: SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
-                    f"4. Follow the relational joins constraints map inside the catalog exactly. Never use review_creation_date for logistics delay tracking.\n"
-                    f"5. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
-                    f"6. SEMANTIC CONTEXT: The Few-Shot patterns provided in rules 3 and 4 are STRICTLY syntax architecture blueprints. " \
-                    f"   If the manager asks about reviews comments, text, or messages, completely ignore product categories, " \
-                    f"   select `r.review_comment_message` from `review_dataset r`, filter `WHERE r.review_comment_message IS NOT NULL`, " \
-                    f"   and calculate statistics based on the actual question text instead of copying the examples."
+                    f"3. STRICT SECURITY RULE (NO TEXT EQUAL SIGN): Never use the equal sign `=` operator to filter text or category names in the WHERE clause, as it causes cloud API stream truncation! "
+                    f"   ALWAYS use the `LIKE` operator for text filtering instead. Example: `WHERE t.product_category_name_english LIKE 'flowers%'`.\n"
+                    f"4. FEW-SHOT LOGISTICS PATTERN:\n"
+                    f"   When asked about delivery time, correlation by days, or delay impact, write strictly like this:\n"
+                    f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
+                    f"5. FEW-SHOT PRODUCT CATEGORIES PATTERN:\n"
+                    f"   When asked to assess product categories, growth, decline, or sales performance, write strictly like this:\n"
+                    f"   SELECT t.product_category_name_english, SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id WHERE t.product_category_name_english LIKE 'flowers%' GROUP BY 1 ORDER BY 2 DESC;\n"
+                    f"6. SEMANTIC CONTEXT: If the manager asks about reviews comments, text, or messages, completely ignore product categories, select `r.review_comment_message` from `review_dataset r` where it is NOT NULL, and calculate stats based on the actual question instead of copying examples.\n"
+                    f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
 
                 
