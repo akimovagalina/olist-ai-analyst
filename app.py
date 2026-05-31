@@ -113,24 +113,24 @@ if st.button("🚀 Запустить расследование"):
             try:
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
-                # FEW-SHOT SQL ПРОМПТ: Учим ИИ подневному реляционному анализу на жестких примерах
-                                # АНТИЦЕНЗУРНЫЙ СИСТЕМНЫЙ ПРОМПТ С ЖЕСТКИМ ЗАПРЕТОМ НА ОПЕРАТОР РАВЕНСТВА ДЛЯ ТЕКСТА
+                # АНТИЦЕНЗУРНЫЙ МУЛЬТИЯЗЫЧНЫЙ ПРОМПТ С ФОКУСОМ НА ПОРТУГАЛЬСКИЙ СЛОЙ DWH
                 sql_system_prompt = (
                     f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema and join keys:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
                     f"2. ULTRA-COMPACT CODE: Keep the query under 6 lines. Never use verbose multi-line CASE WHEN statements.\n"
-                    f"3. STRICT SECURITY RULE (NO TEXT EQUAL SIGN): Never use the equal sign `=` operator to filter text or category names in the WHERE clause, as it causes cloud API stream truncation! "
-                    f"   ALWAYS use the `LIKE` operator for text filtering instead. Example: `WHERE t.product_category_name_english LIKE 'flowers%'`.\n"
+                    f"3. STRICT SECURITY & LANGUAGE RULE (NO TEXT EQUAL SIGN): Never use the equal sign `=` operator to filter text or category names in the WHERE clause, as it causes cloud API stream truncation! "
+                    f"   ALWAYS use the `LIKE` operator instead. To avoid translation mismatches, priorities filtering via the native Portuguese column first. Example: `WHERE p.product_category_name LIKE 'beleza%'`.\n"
                     f"4. FEW-SHOT LOGISTICS PATTERN:\n"
                     f"   When asked about delivery time, correlation by days, or delay impact, write strictly like this:\n"
                     f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
-                    f"5. FEW-SHOT PRODUCT CATEGORIES PATTERN:\n" \
-                    f"   When asked to assess product categories, growth, decline, or sales performance, write strictly like this:\n" \
-                    f"   SELECT t.product_category_name_english, r.review_score, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id JOIN review_dataset r ON o.order_id = r.order_id WHERE (t.product_category_name_english LIKE 'flowers%' OR p.product_category_name LIKE 'flowers%') GROUP BY 1, 2 ORDER BY 3 DESC;\n"
+                    f"5. FEW-SHOT PRODUCT CATEGORIES PATTERN (Strict native Portuguese prioritization):\n"
+                    f"   When asked to assess specific product categories, growth, decline, or sales performance, evaluate the user's input string. If it matches Portuguese layout, filter by `p.product_category_name` first. Write strictly like this:\n"
+                    f"   SELECT t.product_category_name_english, r.review_score, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id JOIN review_dataset r ON o.order_id = r.order_id WHERE (p.product_category_name LIKE 'relogios_presentes%' OR t.product_category_name_english LIKE 'watches_gifts%') GROUP BY 1, 2 ORDER BY 3 DESC;\n"
                     f"6. SEMANTIC CONTEXT: If the manager asks about reviews comments, text, or messages, completely ignore product categories, select `r.review_comment_message` from `review_dataset r` where it is NOT NULL, and calculate stats based on the actual question instead of copying examples.\n"
                     f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
+
 
                 
                 messages = [
