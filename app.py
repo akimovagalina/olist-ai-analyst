@@ -114,9 +114,9 @@ if st.button("🚀 Запустить расследование"):
                     f"4. FEW-SHOT LOGISTICS PATTERN:\n"
                     f"   When asked about delivery time, correlation by days, or delay impact, write strictly like this:\n"
                     f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
-                    f"5. FEW-SHOT PRODUCT CATEGORIES PATTERN:\n"
-                    f"   When asked to assess product categories, growth, decline, or sales performance, write strictly like this:\n"
-                    f"   SELECT t.product_category_name_english, SUM(oi.price) AS total_sales, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id WHERE t.product_category_name_english LIKE 'flowers%' GROUP BY 1 ORDER BY 2 DESC;\n"
+                    f"5. FEW-SHOT PRODUCT CATEGORIES PATTERN:\n" \
+                    f"   When asked to assess product categories, growth, decline, or sales performance, write strictly like this:\n" \
+                    f"   SELECT t.product_category_name_english, r.review_score, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id JOIN review_dataset r ON o.order_id = r.order_id WHERE (t.product_category_name_english LIKE 'flowers%' OR p.product_category_name LIKE 'flowers%') GROUP BY 1, 2 ORDER BY 3 DESC;\n"
                     f"6. SEMANTIC CONTEXT: If the manager asks about reviews comments, text, or messages, completely ignore product categories, select `r.review_comment_message` from `review_dataset r` where it is NOT NULL, and calculate stats based on the actual question instead of copying examples.\n"
                     f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
