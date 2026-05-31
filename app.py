@@ -158,7 +158,7 @@ if st.button("🚀 Запустить расследование"):
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
                 # =====================================================================
-                # УНИВЕРСАЛЬНЫЙ СУПЕР-КОНТУР САМОИСПРАВЛЕНИЯ SQL С ДИНАМИЧЕСКИМ РЕМОНТОМ СТРОК
+                # МНОГОШАГОВЫЙ ДИНАМИЧЕСКИЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (С АВТОДОПИСЫВАНИЕМ)
                 # =====================================================================
                 attempts = 0
                 max_attempts = 3
@@ -170,26 +170,21 @@ if st.button("🚀 Запустить расследование"):
                     # Извлекаем искомое слово из вопроса менеджера для динамического авторемонта обрезки LIKE
                     search_keyword = "flowers%"  # Базовый дефолт
                     words_in_query = re.findall(r"['\"]?([a-zA-Z_]+)['\"]?", user_query)
-                    # Ищем целевое e-commerce слово категории в вопросе менеджера
                     for word in words_in_query:
-                        if word.lower() not in ['find', 'the', 'worst', 'issues', 'for', 'category', 'group', 'by', 'and', 'count', 'orders', 'limit', 'show']:
+                        if word.lower() not in ['find', 'the', 'worst', 'issues', 'for', 'category', 'group', 'by', 'and', 'count', 'orders', 'limit', 'show', 'order', 'score', 'asc', 'desc']:
                             search_keyword = f"{word}%"
                             break
                     
-                    # АВТОДОПИСЫВАНИЕ СТРОК: Если Groq API обрезал строку на LIKE, Python динамически дописывает синтаксис под ТЕКУЩИЙ вопрос
-                    # ИНЖЕНЕРНЫЙ ТРЮК: Очищаем синтаксические обрывы и исправляем незакрытые скобки ИИ на ходу!
+                    # ОЧИСТКА СИНТАКСИСА (РЕГУЛЯРНЫЕ ВЫРАЖЕНИЯ): Гарантированно закрываем скобку перед GROUP BY вне зависимости от пробелов ИИ!
                     generated_sql = generated_sql.strip()
-                    
-                    # Фикс незакрытой скобки перед GROUP BY, если ИИ написал WHERE (p.col LIKE '...'
-                    if "WHERE (" in generated_sql and "LIKE" in generated_sql and not ") GROUP BY" in generated_sql and "GROUP BY" in generated_sql:
-                        generated_sql = generated_sql.replace("GROUP BY", ") GROUP BY")
+                    if re.search(r'WHERE\s*\(', generated_sql, re.IGNORECASE) and "GROUP BY" in generated_sql and not ") GROUP BY" in generated_sql:
+                        generated_sql = re.sub(r'GROUP BY', ') GROUP BY', generated_sql, flags=re.IGNORECASE)
                     
                     # Фикс аппаратного обрыва строки Groq API на ключевых словах фильтрации
                     if generated_sql.endswith("LIKE"):
                         generated_sql += f" '{search_keyword}' GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
                     elif "LIKE" in generated_sql and not "GROUP BY" in generated_sql:
                         generated_sql += f" '{search_keyword}' GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
-
                         
                     try:
                         if attempts == 1:
@@ -201,6 +196,7 @@ if st.button("🚀 Запустить расследование"):
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
                     except Exception as sql_error:
+
                         if attempts == max_attempts:
                             st.warning("🔄 Включен интеллектуальный режим динамического восстановления SQL...")
                             
