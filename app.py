@@ -113,25 +113,22 @@ if st.button("🚀 Запустить расследование"):
             try:
                 st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
                 
-                # АНТИЦЕНЗУРНЫЙ МУЛЬТИЯЗЫЧНЫЙ ПРОМПТ С ФОКУСОМ НА ПОРТУГАЛЬСКИЙ СЛОЙ DWH
+                # ЖЕСТКИЙ ЛИНЕЙНЫЙ ПРОМПТ БЕЗ ЛОМАЮЩИХ СКОБОК ДЛЯ 100% СТАБИЛЬНОСТИ SYNTAX
                 sql_system_prompt = (
                     f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema and join keys:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
-                    f"2. ULTRA-COMPACT CODE: Keep the query under 6 lines. Never use verbose multi-line CASE WHEN statements.\n"
-                    f"3. STRICT SECURITY & LANGUAGE RULE (NO TEXT EQUAL SIGN): Never use the equal sign `=` operator to filter text or category names in the WHERE clause, as it causes cloud API stream truncation! "
-                    f"   ALWAYS use the `LIKE` operator instead. To avoid translation mismatches, priorities filtering via the native Portuguese column first. Example: `WHERE p.product_category_name LIKE 'beleza%'`.\n"
-                    f"4. FEW-SHOT LOGISTICS PATTERN:\n"
+                    f"2. ULTRA-COMPACT CODE: Keep the query under 5 lines. Never use multi-line CASE WHEN statements.\n"
+                    f"3. NO EQUAL SIGN FOR TEXT: Never use `=` to filter string text, it causes API stream truncation! ALWAYS use the `LIKE` operator.\n"
+                    f"4. NO BRACKETS IN WHERE: Never wrap WHERE filters in parentheses `()`. Keep string filtering completely flat and linear.\n"
+                    f"5. FEW-SHOT LOGISTICS PATTERN:\n"
                     f"   When asked about delivery time, correlation by days, or delay impact, write strictly like this:\n"
                     f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
-                    f"5. FEW-SHOT PRODUCT CATEGORIES PATTERN (Strict native Portuguese prioritization):\n"
-                    f"   When asked to assess specific product categories, growth, decline, or sales performance, evaluate the user's input string. If it matches Portuguese layout, filter by `p.product_category_name` first. Write strictly like this:\n"
-                    f"   SELECT t.product_category_name_english, r.review_score, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id JOIN review_dataset r ON o.order_id = r.order_id WHERE (p.product_category_name LIKE 'relogios_presentes%' OR t.product_category_name_english LIKE 'watches_gifts%') GROUP BY 1, 2 ORDER BY 3 DESC;\n"
-                    f"6. SEMANTIC CONTEXT: If the manager asks about reviews comments, text, or messages, completely ignore product categories, select `r.review_comment_message` from `review_dataset r` where it is NOT NULL, and calculate stats based on the actual question instead of copying examples.\n"
+                    f"6. FEW-SHOT PRODUCT CATEGORIES PATTERN (Flat native Portuguese layout prioritization):\n"
+                    f"   When asked to assess specific categories, performance, or issues, write strictly like this raw format:\n"
+                    f"   SELECT p.product_category_name, r.review_score, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN orders_dataset o ON oi.order_id = o.order_id JOIN review_dataset r ON o.order_id = r.order_id WHERE p.product_category_name LIKE 'relogios_presentes%' GROUP BY 1, 2 ORDER BY 2 ASC;\n"
                     f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
-
-
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
@@ -158,7 +155,7 @@ if st.button("🚀 Запустить расследование"):
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
                 # =====================================================================
-                # МНОГОШАГОВЫЙ ДИНАМИЧЕСКИЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (С АВТОДОПИСЫВАНИЕМ)
+                # ЧИСТЫЙ АВТОНОМНЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (БЕЗ СТАТИЧЕСКИХ КОСТЫЛЕЙ)
                 # =====================================================================
                 attempts = 0
                 max_attempts = 3
@@ -166,26 +163,6 @@ if st.button("🚀 Запустить расследование"):
                 
                 while attempts < max_attempts and not sql_success:
                     attempts += 1
-                    
-                    # Извлекаем искомое слово из вопроса менеджера для динамического авторемонта обрезки LIKE
-                    search_keyword = "flowers%"  # Базовый дефолт
-                    words_in_query = re.findall(r"['\"]?([a-zA-Z_]+)['\"]?", user_query)
-                    for word in words_in_query:
-                        if word.lower() not in ['find', 'the', 'worst', 'issues', 'for', 'category', 'group', 'by', 'and', 'count', 'orders', 'limit', 'show', 'order', 'score', 'asc', 'desc']:
-                            search_keyword = f"{word}%"
-                            break
-                    
-                    # ОЧИСТКА СИНТАКСИСА (РЕГУЛЯРНЫЕ ВЫРАЖЕНИЯ): Гарантированно закрываем скобку перед GROUP BY вне зависимости от пробелов ИИ!
-                    generated_sql = generated_sql.strip()
-                    if re.search(r'WHERE\s*\(', generated_sql, re.IGNORECASE) and "GROUP BY" in generated_sql and not ") GROUP BY" in generated_sql:
-                        generated_sql = re.sub(r'GROUP BY', ') GROUP BY', generated_sql, flags=re.IGNORECASE)
-                    
-                    # Фикс аппаратного обрыва строки Groq API на ключевых словах фильтрации
-                    if generated_sql.endswith("LIKE"):
-                        generated_sql += f" '{search_keyword}' GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
-                    elif "LIKE" in generated_sql and not "GROUP BY" in generated_sql:
-                        generated_sql += f" '{search_keyword}' GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
-                        
                     try:
                         if attempts == 1:
                             st.code(generated_sql, language="sql")
@@ -196,15 +173,14 @@ if st.button("🚀 Запустить расследование"):
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
                     except Exception as sql_error:
-
                         if attempts == max_attempts:
                             st.warning("🔄 Включен интеллектуальный режим динамического восстановления SQL...")
                             
-                            # Универсальный аварийный промпт БЕЗ жестких запросов. ИИ пересоберет простейший SQL строго под текущую задачу
+                            # Чистый лаконичный динамический аварийный промпт без жестких дат и хардкода слов
                             fallback_prompt = (
-                                f"The user asked: '{user_query}'. Your complex multi-table query crashed with truncation error.\n"
-                                f"Write the SHORTEST valid SQLite query (max 3 lines) to fetch row segments for this question.\n"
-                                f"Use standard SELECT, JOIN, GROUP BY 1 and LIMIT 5 based on this relationships schema blueprint map:\n{DATABASE_SCHEMA}\n"
+                                f"The user asked: '{user_query}'. Your complex multi-table query crashed with error: {str(sql_error)}.\n"
+                                f"Write the SHORTEST valid SQLite query (max 3 lines) to fetch clean row segments for this question.\n"
+                                f"Rely strictly on this relationships map constraints catalog:\n{DATABASE_SCHEMA}\n"
                                 f"Return ONLY raw pure SQL code text without any markdown or conversation padding."
                             )
                             
@@ -223,7 +199,7 @@ if st.button("🚀 Запустить расследование"):
                                     generated_sql = response_fallback['choices']['message']['content']
                                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                             except Exception:
-                                # Абсолютный, 100% безопасный независимый дефолт СУБД (просто срез статусов)
+                                # Универсальный независимый дефолт СУБД (просто базовый срез статусов)
                                 generated_sql = "SELECT order_status, COUNT(order_id) AS total_orders FROM orders_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
                                 
                             st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
@@ -234,7 +210,6 @@ if st.button("🚀 Запустить расследование"):
                             
                         st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                        # Сбрасываем память контекста для защиты от TPM лимитов
                         messages = [
                             {"role": "system", "content": sql_system_prompt},
                             {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Follow the RELATIONSHIPS MAP constraints exactly. Return ONLY raw pure SQL text."}
@@ -259,38 +234,30 @@ if st.button("🚀 Запустить расследование"):
                             
                         generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 # =====================================================================
-
                 
                 st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
                 st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
                 
-                # УСИЛЕННЫЙ ПРАВИЛАМИ ВАЛИДАЦИИ СИСТЕМНЫЙ ПРОМПТ АНАЛИТИКА
+                # ИИ ТЕПЕРЬ ДУМАЕТ ПОЛНОСТЬЮ САМ, НО ОФОРМЛЯЕТ В ВИДЕ ПЛОТНОЙ ТАБЛИЦЫ ДЛЯ ОБХОДА ОБРЕЗКИ
                 analyst_system_prompt = (
                     "Ты Ведущий продуктовый аналитик маркетплейса Olist с глубоким критическим мышлением. Твоя задача — изучить пришедшую таблицу данных, "
                     "самостоятельно выявить коммерческий тренд и составить емкий бизнес-отчет СТРОГО НА РУССКОМ ЯЗЫКЕ в виде Markdown-таблицы.\n\n"
                     "ПРАВИЛА АВТОНОМНОГО АНАЛИЗА:\n"
-                    "1. СРАВНИВАЙ СТРОКИ: Самостоятельно глазами сопоставь показатели в таблице, выяви математические зависимости и закономерности.\n"
-                    "2. КРИТИЧЕСКИЙ ВАЛИДАТОР ДАННЫХ (DATA VALIDATION): Внимательно посмотри на названия колонок. Если в пришедшей таблице содержатся только справочные данные "
-                    "   (например, просто список лет, уникальные статусы или имена городов) и НЕТ колонок с финансовыми объемами (sales, revenue, price, payment) или количеством заказов (orders, count), "
-                    "   тебе КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО выдумывать спады, рост или строить логистические гипотезы! В этом случае в блоке 'Главный инсайт' просто сухо перечисли доступные в таблице периоды/данные, "
-                    "   а в блоках гипотез и рекомендаций напиши, каких конкретно продуктовых метрик тебе не хватило для проведения полноценного коммерческого аудита.\n"
-                    "3. НЕЗАВИСИМЫЕ ВИЗУАЛЬНЫЕ ГИПОТЕЗЫ: Если финансовые данные есть, выдвини собственные сильные гипотезы о причинах тренда без подсказок со стороны кода.\n\n"
+                    "1. СРАВНИВАЙ СТРОКИ: Самостоятельно глазами сопоставь показатели в таблице, выяви математические зависимости, спады, рекорды и закономерности.\n"
+                    "2. НЕЗАВИСИМЫЕ ГИПОТЕЗЫ: На основе аномальных пиков или провалов выдвини собственные сильные гипотезы о коммерческих причинах тренда без каких-либо подсказок со стороны кода.\n\n"
                     "ОБЯЗАТЕЛЬНЫЙ ФОРМАТ ВЫВОДА (Строго Markdown-таблица для экономии токенов):\n"
                     "| Раздел отчета | Аналитическое заключение ИИ-агента (Выводы полностью формулируешь САМ) |\n"
                     "| :--- | :--- |\n"
-                    "| **🎯 1. Главный инсайт** | *Твое независимое заключение о тренде из таблицы (или сухой перечень данных, если метрик продаж нет)* |\n"
+                    "| **🎯 1. Главный инсайт** | *Твое независимое заключение о тренде из таблицы* |\n"
                     "| **📊 2. Главные цифры** | *Ключевые лидеры, пиковые значения или проценты изменений, которые ты видишь в таблице* |\n"
-                    "| **💡 3. Твои гипотезы** | *Выдвини 2 коммерческие гипотезы причин такого распределения (или укажи, каких данных не хватило для гипотез)* |\n"
+                    "| **💡 3. Твои гипотезы** | *Выдвини 2 независимые коммерческие гипотезы причин такого распределения (логистика, сезонность, поведение клиентов)* |\n"
                     "| **🚀 4. Рекомендация** | *3 конкретных шага для топ-менеджмента на основе твоих личных выводов* |"
                 )
-
                 
-                # ДИНАМИЧЕСКАЯ УНИВЕРСАЛЬНАЯ СЖАТИЕ КОНТЕКСТА ПО ОБЪЕМУ ДАННЫХ (БЕЗ ЖЕСТКОГО КОДА)
+                # ДИНАМИЧЕСКОЕ УНИВЕРСАЛЬНОЕ СЖАТИЕ КОНТЕКСТА ПО ОБЪЕМУ ДАННЫХ (БЕЗ ЖЕСТКОГО КОДА)
                 try:
-                    # Находим все числовые колонки (int и float)
                     numeric_cols = result_df.select_dtypes(include=['number']).columns.tolist()
                     if numeric_cols:
-                        # Находим числовую колонку с максимальной суммой значений (ядро объемов данных)
                         sort_target = max(numeric_cols, key=lambda col: result_df[col].sum())
                         compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
                     else:
@@ -298,7 +265,6 @@ if st.button("🚀 Запустить расследование"):
                 except Exception:
                     compressed_df = result_df.head(15)
                 
-                # Отправляем в ИИ-аналитик только очищенную репрезентативную макро-картину
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
@@ -309,15 +275,12 @@ if st.button("🚀 Запустить расследование"):
                     max_tokens=800
                 )
                 
-                res_report_str = str(report_response)
-                content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_report_str)
-                if content_match:
-                    final_report = content_match.group(1).replace("\\n", "\n")
+                if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
+                    final_report = report_response.choices.message.content
+                elif 'choices' in report_response and len(report_response['choices']) > 0:
+                    final_report = report_response['choices']['message']['content']
                 else:
-                    if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
-                        final_report = report_response.choices.message.content
-                    else:
-                        final_report = report_response['choices']['message']['content']
+                    final_report = str(report_response)
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
