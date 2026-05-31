@@ -11,7 +11,7 @@ from litellm import completion
 # Configure Streamlit presentation layer
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
-st.title("🕵️‍♂️ AI-Агент: Цифровой Детектив Маркетплейса Olist")
+st.title("AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
 
 # Secure background environmental setup for credentials
@@ -48,7 +48,9 @@ Table geolocation_dataset { geolocation_zip_code_prefix int [pk], geolocation_la
 Table orders_dataset { order_id string [pk], customer_id string, order_status string, order_purchase_timestamp string, order_approved_at string, order_delivered_carrier_date string, order_delivered_customer_date string, order_estimated_delivery_date string }
 Table order_items_dataset { order_id string, order_item_id int, product_id string, seller_id string, price float }
 Table order_payments_dataset { order_id string, payment_sequential int, payment_type string, payment_installments int, payment_value float }
-Table review_dataset { review_id string [pk], order_id string, review_score int, review_creation_date string, review_answer_timestamp string }
+Table review_dataset { 
+  review_id string [pk], order_id string, review_score int, review_comment_title string, review_comment_message string, review_creation_date string, review_answer_timestamp string 
+}
 Table products_dataset { product_id string [pk], product_category_name string, product_name_lenght int, product_description_lenght int, product_photos_qty int, product_weight_g int, product_length_cm int, product_height_cm int, product_width_cm int }
 Table sellers_dataset { seller_id string [pk], seller_zip_code_prefix int, seller_city string, seller_state string }
 Table product_category_name_translation { product_category_name string [pk], product_category_name_english string }
@@ -111,6 +113,10 @@ if st.button("🚀 Запустить расследование"):
                     f"   Example query layout: SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
                     f"4. Follow the relational joins constraints map inside the catalog exactly. Never use review_creation_date for logistics delay tracking.\n"
                     f"5. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
+                    f"6. SEMANTIC CONTEXT: The Few-Shot patterns provided in rules 3 and 4 are STRICTLY syntax architecture blueprints. " \
+                    f"   If the manager asks about reviews comments, text, or messages, completely ignore product categories, " \
+                    f"   select `r.review_comment_message` from `review_dataset r`, filter `WHERE r.review_comment_message IS NOT NULL`, " \
+                    f"   and calculate statistics based on the actual question text instead of copying the examples."
                 )
 
                 
