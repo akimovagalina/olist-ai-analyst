@@ -1,3 +1,12 @@
+# =====================================================================
+# ПРИНУДИТЕЛЬНЫЙ СБРОС КЭША СЕССИИ СЕРВЕРА ДЛЯ СМЕНЫ ПРОМПТОВ
+# =====================================================================
+if "clear_cache_executed" not in st.session_state:
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    st.session_state["clear_cache_executed"] = True
+# =====================================================================
+
 import os
 import sqlite3
 import pandas as pd
