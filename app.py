@@ -177,11 +177,19 @@ if st.button("🚀 Запустить расследование"):
                             break
                     
                     # АВТОДОПИСЫВАНИЕ СТРОК: Если Groq API обрезал строку на LIKE, Python динамически дописывает синтаксис под ТЕКУЩИЙ вопрос
+                    # ИНЖЕНЕРНЫЙ ТРЮК: Очищаем синтаксические обрывы и исправляем незакрытые скобки ИИ на ходу!
                     generated_sql = generated_sql.strip()
+                    
+                    # Фикс незакрытой скобки перед GROUP BY, если ИИ написал WHERE (p.col LIKE '...'
+                    if "WHERE (" in generated_sql and "LIKE" in generated_sql and not ") GROUP BY" in generated_sql and "GROUP BY" in generated_sql:
+                        generated_sql = generated_sql.replace("GROUP BY", ") GROUP BY")
+                    
+                    # Фикс аппаратного обрыва строки Groq API на ключевых словах фильтрации
                     if generated_sql.endswith("LIKE"):
                         generated_sql += f" '{search_keyword}' GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
                     elif "LIKE" in generated_sql and not "GROUP BY" in generated_sql:
                         generated_sql += f" '{search_keyword}' GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
+
                         
                     try:
                         if attempts == 1:
