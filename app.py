@@ -282,12 +282,16 @@ if st.button("🚀 Запустить расследование"):
                     max_tokens=800
                 )
                 
-                if hasattr(report_response, 'choices') and hasattr(report_response.choices, 'message'):
-                    final_report = report_response.choices.message.content
-                elif 'choices' in report_response and len(report_response['choices']) > 0:
-                    final_report = report_response['choices']['message']['content']
-                else:
-                    final_report = str(report_response)
+                # БРОНИРОВАННЫЙ ИСПРАВЛЕННЫЙ ПАРСЕР ОБЪЕКТА И СЛОВАРЯ API RESPONSE
+                try:
+                    if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
+                        final_report = report_response.choices[0].message.content
+                    elif isinstance(report_response, dict) and 'choices' in report_response and len(report_response['choices']) > 0:
+                        final_report = report_response['choices'][0]['message']['content']
+                    else:
+                        final_report = str(report_response)
+                except Exception as parse_err:
+                    final_report = f"Ошибка отображения текста отчета: {parse_err}. Сырой ответ: {str(report_response)}"
                     
                 status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
                 
@@ -302,3 +306,4 @@ if st.button("🚀 Запустить расследование"):
             except Exception as e:
                 status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
                 st.error(f"Произошел технический сбой: {e}")
+
