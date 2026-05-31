@@ -25,7 +25,7 @@ DB_PATH = "olist.db"
 DB_URL = "https://r2.dev"
 
 # Force cache flush if an outdated, clipped database asset is detected
-if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 80000000:
+if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 90000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
