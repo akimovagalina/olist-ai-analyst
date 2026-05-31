@@ -1,5 +1,16 @@
+import os
+import sqlite3
+import pandas as pd
+import streamlit as st  # <-- ИМПОРТ ДОЛЖЕН ИДТИ ПЕРВЫМ!
+import asyncio
+import urllib.request
+import requests
+import ssl
+import re
+from litellm import completion
+
 # =====================================================================
-# ПРИНУДИТЕЛЬНЫЙ СБРОС КЭША СЕССИИ СЕРВЕРА ДЛЯ СМЕНЫ ПРОМПТОВ
+# ПРИНУДИТЕЛЬНЫЙ СБРОС КЭША СЕССИИ СЕРВЕРА (СТРОГО ПОСЛЕ ИМПОРТА ST)
 # =====================================================================
 if "clear_cache_executed" not in st.session_state:
     st.cache_data.clear()
@@ -7,18 +18,9 @@ if "clear_cache_executed" not in st.session_state:
     st.session_state["clear_cache_executed"] = True
 # =====================================================================
 
-import os
-import sqlite3
-import pandas as pd
-import streamlit as st
-import asyncio
-import urllib.request
-import ssl
-import re  # Safe regular expression parsing for raw API data extraction
-from litellm import completion
-
-# Configure Streamlit presentation layer
+# Настройка внешнего вида страницы Streamlit
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
+
 
 st.title("AI-Агент: Цифровой Детектив Маркетплейса Olist")
 st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
