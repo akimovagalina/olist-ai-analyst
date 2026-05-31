@@ -22,7 +22,8 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ПОЛНОЙ БАЗЫ ДАННЫХ (БЕЗ SSL-ОШИБОК)
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://r2.dev"
+DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+
 
 # Force cache flush if an outdated, clipped database asset is detected
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 90000000:
