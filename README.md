@@ -4,7 +4,7 @@
 An enterprise-grade, fault-tolerant Business Intelligence (BI) routing network that automates the first layer of data analytics over a complex 9-table Relational Data Warehouse (DWH) containing 100K+ transaction rows. The platform enables C-level management (CMO, CPO, Product Leads) to query live relational architecture using simple natural language, completely removing manual SQL scripting barriers.
 
 ##  Live Production Link
- **Explore the Live AI Agent Tool on Streamlit Cloud:** `[ВСТАВЬТЕ_СЮДА_ВАШУ_ССЫЛКУ_НА_СТРИМЛИТ]`
+ **Explore the Live AI Agent Tool on Streamlit Cloud:** `https://olist-ai-analyst-ynao5ntbnividq2katfsir.streamlit.app/`
 
 ---
 
