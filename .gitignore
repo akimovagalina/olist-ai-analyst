@@ -1,1 +1,4 @@
 olist.db
+.streamlit/
+__pycache__/
+*.pyc
