@@ -242,8 +242,8 @@ if st.button("🚀 Run Investigation"):
                         generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 # =====================================================================
 
-                st.write("🔍 Шаг 2: Выполнение запроса в olist.db и извлечение точных метрик...")
-                st.write("✍️ Шаг 3: Формирование аналитического отчета на русском языке...")
+                st.write("Step 2: Executing query in olist.db and extracting precise metrics...")
+                st.write("Step 3: Creating analytical report ...")
                 
                 # ИИ ТЕПЕРЬ ДУМАЕТ ПОЛНОСТЬЮ САМ, НО ОФОРМЛЯЕТ В ВИДЕ ПЛОТНОЙ ТАБЛИЦЫ ДЛЯ ОБХОДА ОБРЕЗКИ
                 analyst_system_prompt = (
