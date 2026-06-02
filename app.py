@@ -19,7 +19,7 @@ if "clear_cache_executed" not in st.session_state:
 # =====================================================================
 
 # Настройка внешнего вида страницы Streamlit
-st.set_page_config(page_title="AI Olist Investigator", page_icon="🤖+🧠", layout="wide")
+st.set_page_config(page_title="AI Olist Investigator", page_icon="🧠", layout="wide")
 
 
 st.title("AI-Agent: Digital Detective from the Olist Marketplace")
