@@ -254,7 +254,7 @@ if st.button("🚀 Run Investigation"):
                     "2. INDEPENDENT HYPOTHESES: Based on anomalous peaks or troughs, formulate your own strong hypotheses about the commercial causes of the trend without any guidance from the code.\n\n"
                     "MANDATORY OUTPUT FORMAT (Strict Markdown table for token efficiency):\n\n"
                     "| Report Section | AI Agent's Analytical Conclusion (You formulate the conclusions entirely) |\n\n"
-                    "| :--- | :--- |\n"
+                    "|\n"
                     "| **🎯 1. Main Insight** | *Your independent conclusion about the trend from the table* |\n\n"
                     "| **📊 2. Key Figures** | *Key leaders, peak values, or percentage changes you see in the table* |\n\n"
                     "| **💡 3. Your Hypotheses** | *Formulate 2 independent commercial hypotheses about the causes of this distribution (logistics, seasonality, customer behavior)* |\n\n"
