@@ -22,8 +22,8 @@ if "clear_cache_executed" not in st.session_state:
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
 
-st.title("AI-Агент: Цифровой Детектив Маркетплейса Olist")
-st.subheader("Полносвязный сквозной ad-hoc аудит e-commerce архитектуры (9 таблиц DWH)")
+st.title("AI-Agent: Digital Detective from the Olist Marketplace)
+st.subheader("Fully connected end-to-end ad-hoc audit of e-commerce architecture (9 DWH tables)")
 
 # Secure background environmental setup for credentials
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
@@ -41,15 +41,15 @@ if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 90000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
-    with st.spinner("📦 Полная база Olist не найдена. Скачиваю весь датасет DWH маркетплейса (9 таблиц, 65 MB)..."):
+    with st.spinner("The full Olist database was not found. Downloading the entire DWH marketplace dataset..."):
         try:
             # ТРЮК ДЛЯ ПОРТФОЛИО: Отключаем проверку SSL для предотвращения ошибок handshake alert
             ssl_context = ssl._create_unverified_context()
             with urllib.request.urlopen(DB_URL, context=ssl_context) as response, open(DB_PATH, 'wb') as out_file:
                 out_file.write(response.read())
-            st.success("✅ Все 9 таблиц базы данных успешно загружены и подключены!")
+            st.success("✅ All 9 tables of the database were successfully downloaded and connected!")
         except Exception as e:
-            st.error(f"❌ Ошибка автоматического скачивания базы: {e}")
+            st.error(f"❌ Error downloading the database automatically: {e}")
 
 # =====================================================================
 # КОМПЛЕКСНАЯ СЕМАНТИЧЕСКАЯ КАРТА СВЯЗЕЙ (ENTERPRISE DATA CATALOG) ДЛЯ ИИ
@@ -81,7 +81,7 @@ CRITICAL ERROR PREVENTION FOR THE ENGINE:
 2. 'products_dataset' has NO relational mapping to 'orders_dataset' directly. To connect them, you MUST join through order_items_dataset via order_id and product_id!
 """
 def run_sql_query(sql_code: str) -> pd.DataFrame:
-    """Выполняет SQL-запрос с автоматической поддержкой индексов Big Data"""
+    """Executes a SQL query with automatic Big Data index support"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_id ON customers_dataset(customer_id);")
@@ -103,15 +103,15 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
 
 # Интерфейс ввода вопроса менеджера
 default_query = "How do user reviews depend on delivery delay times by days?"
-user_query = st.text_area("✍️ Введите любой ваш бизнес-вопрос к базе Olist на английском языке:", value=default_query, height=100)
+user_query = st.text_area("✍️ Enter any business question about the Olist database in English:", value=default_query, height=100)
 
-if st.button("🚀 Запустить расследование"):
+if st.button("🚀 Run Investigation"):
     if not os.environ.get("GROQ_API_KEY"):
-        st.error("Пожалуйста, укажите валидный GROQ_API_KEY в настройках Secrets!")
+        st.error("Please specify a valid GROQ_API_KEY in the Secrets settings!")
     else:
-        with st.status("🕵️‍♂️ ИИ-аналитик изучает хранилище данных маркетплейса...", expanded=True) as status:
+        with st.status("🕵️‍♂️ AI Analyst is examining the marketplace data warehouse...", expanded=True) as status:
             try:
-                st.write("🤖 Шаг 1: Генерация SQL-кода на основе схемы таблиц...")
+                st.write("🤖 Step 1: Generating SQL code based on the table schema...")
                 
                 # ЖЕСТКИЙ ЛИНЕЙНЫЙ ПРОМПТ БЕЗ ЛОМАЮЩИХ СКОБОК ДЛЯ 100% СТАБИЛЬНОСТИ SYNTAX
                 sql_system_prompt = (
@@ -170,7 +170,7 @@ if st.button("🚀 Запустить расследование"):
                         # САНИТИЗАЦИЯ И АВТОЗАВЕРШЕНИЕ СТРОКИ: Если Groq обрезал запрос на LIKE или =
                         generated_sql = generated_sql.strip()
                         if generated_sql.endswith("LIKE") or generated_sql.endswith("="):
-                            st.warning("⚡ Обнаружен обрыв строки API на фильтре. Применяю автоматическое достраивание SQL-запроса...")
+                            st.warning("⚡ API string break detected in filter. Applying SQL query tweaking fee...")
                             
                             # Извлекаем название категории из вопроса менеджера (ищем beleza_saude или любое другое слово)
                             category_match = re.search(r'for\s+([a-zA-Z_0-9]+)\s+category', user_query.lower())
@@ -185,14 +185,14 @@ if st.button("🚀 Запустить расследование"):
                         if attempts == 1:
                             st.code(generated_sql, language="sql")
                         else:
-                            st.markdown(f"**🔄 Попытка самоисправления №{attempts-1}:**")
+                            st.markdown(f"**🔄 Attempt to self-correct №{attempts-1}:**")
                             st.code(generated_sql, language="sql")
                             
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
                     except Exception as sql_error:
                         if attempts == max_attempts:
-                            st.warning("🔄 Включен интеллектуальный режим динамического восстановления SQL...")
+                            st.warning("🔄 The intelligent dynamic recovery mode for SQL has been activated...")
                             
                             category_match = re.search(r'for\s+([a-zA-Z_0-9]+)\s+category', user_query.lower())
                             extracted_cat = category_match.group(1) if category_match else "beleza_saude"
@@ -214,7 +214,7 @@ if st.button("🚀 Запустить расследование"):
                             sql_success = True
                             break
                             
-                        st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
+                        st.warning(f"⚠️ Error in SQL (Attempt {attempts}): {str(sql_error)}. Running AI to fix the structure...")
                         
                         # Сбрасываем память контекста для защиты от TPM лимитов
                         messages = [
@@ -247,18 +247,18 @@ if st.button("🚀 Запустить расследование"):
                 
                 # ИИ ТЕПЕРЬ ДУМАЕТ ПОЛНОСТЬЮ САМ, НО ОФОРМЛЯЕТ В ВИДЕ ПЛОТНОЙ ТАБЛИЦЫ ДЛЯ ОБХОДА ОБРЕЗКИ
                 analyst_system_prompt = (
-                    "Ты Ведущий продуктовый аналитик маркетплейса Olist с глубоким критическим мышлением. Твоя задача — изучить пришедшую таблицу данных, "
-                    "самостоятельно выявить коммерческий тренд и составить емкий бизнес-отчет СТРОГО НА РУССКОМ ЯЗЫКЕ в виде Markdown-таблицы.\n\n"
-                    "ПРАВИЛА АВТОНОМНОГО АНАЛИЗА:\n"
-                    "1. СРАВНИВАЙ СТРОКИ: Самостоятельно глазами сопоставь показатели в таблице, выяви математические зависимости, спады, рекорды и закономерности.\n"
-                    "2. НЕЗАВИСИМЫЕ ГИПОТЕЗЫ: На основе аномальных пиков или провалов выдвини собственные сильные гипотезы о коммерческих причинах тренда без каких-либо подсказок со стороны кода.\n\n"
-                    "ОБЯЗАТЕЛЬНЫЙ ФОРМАТ ВЫВОДА (Строго Markdown-таблица для экономии токенов):\n"
-                    "| Раздел отчета | Аналитическое заключение ИИ-агента (Выводы полностью формулируешь САМ) |\n"
+                    "You are a leading product analyst at the Olist marketplace with deep critical thinking skills. Your task is to study the incoming data table, "
+                    "independently identify commercial trends, and create a concise business report in English in the form of a Markdown table.\n\n"
+                    "INDEPENDENT ANALYSIS RULES:\n"
+                    "1. COMPARE ROWS: Independently compare the metrics in the table, identify mathematical dependencies, declines, records, and patterns.\n"
+                    "2. INDEPENDENT HYPOTHESES: Based on anomalous peaks or troughs, formulate your own strong hypotheses about the commercial causes of the trend without any guidance from the code.\n\n"
+                    "MANDATORY OUTPUT FORMAT (Strict Markdown table for token efficiency):\n"
+                    "| Report Section | AI Agent's Analytical Conclusion (You formulate the conclusions entirely) |\n"
                     "| :--- | :--- |\n"
-                    "| **🎯 1. Главный инсайт** | *Твое независимое заключение о тренде из таблицы* |\n"
-                    "| **📊 2. Главные цифры** | *Ключевые лидеры, пиковые значения или проценты изменений, которые ты видишь в таблице* |\n"
-                    "| **💡 3. Твои гипотезы** | *Выдвини 2 независимые коммерческие гипотезы причин такого распределения (логистика, сезонность, поведение клиентов)* |\n"
-                    "| **🚀 4. Рекомендация** | *3 конкретных шага для топ-менеджмента на основе твоих личных выводов* |"
+                    "| **🎯 1. Main Insight** | *Your independent conclusion about the trend from the table* |\n"
+                    "| **📊 2. Key Figures** | *Key leaders, peak values, or percentage changes you see in the table* |\n"
+                    "| **💡 3. Your Hypotheses** | *Formulate 2 independent commercial hypotheses about the causes of this distribution (logistics, seasonality, customer behavior)* |\n"
+                    "| **🚀 4. Recommendation** | *3 specific actions for top management based on your personal insights* |"
                 )
                 
                 # ДИНАМИЧЕСКОЕ УНИВЕРСАЛЬНОЕ СЖАТИЕ КОНТЕКСТА ПО ОБЪЕМУ ДАННЫХ (БЕЗ ЖЕСТКОГО КОДА)
@@ -276,7 +276,7 @@ if st.button("🚀 Запустить расследование"):
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
-                        {"role": "user", "content": f"Полученные из базы транзакционные данные для твоего личного бизнес-анализа:\n{compressed_df.to_string(index=False)}"}
+                        {"role": "user", "content": f"Transactional data retrieved from the database for your personal business analysis:\n{compressed_df.to_string(index=False)}"}
                     ],
                     temperature=0.2,
                     max_tokens=800
@@ -291,19 +291,19 @@ if st.button("🚀 Запустить расследование"):
                     else:
                         final_report = str(report_response)
                 except Exception as parse_err:
-                    final_report = f"Ошибка отображения текста отчета: {parse_err}. Сырой ответ: {str(report_response)}"
+                    final_report = f"Error displaying report text: {parse_err}. Raw response: {str(report_response)}"
                     
-                status.update(label="✅ Анализ успешно завершен!", state="complete", expanded=False)
+                status.update(label="✅ Analysis completed successfully!", state="complete", expanded=False)
                 
                 # Выводим ПОЛНУЮ таблицу на экран пользователю без каких-либо ограничений срезов
-                st.success("📊 Данные из полной инфраструктуры DWH Olist для анализа:")
+                st.success("📊 Transactional data from the full Olist DWH infrastructure for analysis:")
                 st.dataframe(result_df, use_container_width=True)
                 
                 # Выводим текстовый отчет
-                st.subheader("🎯 Финальный бизнес-отчет аналитика:")
+                st.subheader("🎯 Final business report from the analyst:")
                 st.markdown(final_report)
                 
             except Exception as e:
-                status.update(label="❌ Ошибка выполнения", state="error", expanded=False)
-                st.error(f"Произошел технический сбой: {e}")
+                status.update(label="❌ Runtime error", state="error", expanded=False)
+                st.error(f"Technical failure: {e}")
 
