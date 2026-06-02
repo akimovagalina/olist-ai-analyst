@@ -22,7 +22,7 @@ if "clear_cache_executed" not in st.session_state:
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🕵️‍♂️", layout="wide")
 
 
-st.title("AI-Agent: Digital Detective from the Olist Marketplace)
+st.title("AI-Agent: Digital Detective from the Olist Marketplace")
 st.subheader("Fully connected end-to-end ad-hoc audit of e-commerce architecture (9 DWH tables)")
 
 # Secure background environmental setup for credentials
