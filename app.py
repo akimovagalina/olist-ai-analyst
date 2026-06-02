@@ -111,7 +111,7 @@ if st.button("🚀 Run Investigation"):
     else:
         with st.status("🕵️‍♂️ AI Analyst is examining the marketplace data warehouse...", expanded=True) as status:
             try:
-                st.write("🤖 Step 1: Generating SQL code based on the table schema...")
+                st.write("Step 1: Generating SQL code based on the table schema...")
                 
                 # ЖЕСТКИЙ ЛИНЕЙНЫЙ ПРОМПТ БЕЗ ЛОМАЮЩИХ СКОБОК ДЛЯ 100% СТАБИЛЬНОСТИ SYNTAX
                 sql_system_prompt = (
