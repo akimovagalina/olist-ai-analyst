@@ -109,9 +109,9 @@ if st.button("🚀 Run Investigation"):
     if not os.environ.get("GROQ_API_KEY"):
         st.error("Please specify a valid GROQ_API_KEY in the Secrets settings!")
     else:
-        with st.status("🕵️‍♂️ AI Analyst is examining the marketplace data warehouse...", expanded=True) as status:
+        with st.status(" AI Analyst is examining the marketplace data warehouse...", expanded=True) as status:
             try:
-                st.write("🤖 Step 1: Generating SQL code based on the table schema...")
+                st.write(" Step 1: Generating SQL code based on the table schema...")
                 
                 # ЖЕСТКИЙ ЛИНЕЙНЫЙ ПРОМПТ БЕЗ ЛОМАЮЩИХ СКОБОК ДЛЯ 100% СТАБИЛЬНОСТИ SYNTAX
                 sql_system_prompt = (
