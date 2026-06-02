@@ -113,22 +113,25 @@ if st.button("🚀 Run Investigation"):
             try:
                 st.write(" Step 1: Generating SQL code based on the table schema...")
                 
-                # ЖЕСТКИЙ ЛИНЕЙНЫЙ ПРОМПТ БЕЗ ЛОМАЮЩИХ СКОБОК ДЛЯ 100% СТАБИЛЬНОСТИ SYNTAX
+                 # УНИВЕРСАЛЬНЫЙ ДВУХШАГОВЫЙ FEW-SHOT ПРОМПТ (ЛОГИСТИКА + БИЗНЕС-ВЕРТИКАЛИ)
                 sql_system_prompt = (
-                    f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema and join keys:\n{DATABASE_SCHEMA}\n\n"
+                    f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
-                    f"2. ULTRA-COMPACT CODE: Keep the query under 5 lines. Never use multi-line CASE WHEN statements.\n"
-                    f"3. NO EQUAL SIGN FOR TEXT: Never use `=` to filter string text, it causes API stream truncation! ALWAYS use the `LIKE` operator.\n"
-                    f"4. NO BRACKETS IN WHERE: Never wrap WHERE filters in parentheses `()`. Keep string filtering completely flat and linear.\n"
-                    f"5. FEW-SHOT LOGISTICS PATTERN:\n"
-                    f"   When asked about delivery time, correlation by days, or delay impact, write strictly like this:\n"
+                    f"2. ULTRA-COMPACT CODE: Keep the query under 6 lines. Never use verbose multi-line CASE WHEN statements.\n"
+                    f"3. STRICT REVENUE AGGREGATION RULE:\n"
+                    f"   When asked about business verticals, revenue growth, stagnation, stalled performance, or sales totals, you MUST calculate the total revenue using `SUM(oi.price) AS total_revenue` and pair it with `COUNT(DISTINCT o.order_id) AS total_orders`.\n"
+                    f"4. STRICT GROUP BY RULE:\n"
+                    f"   Always group strictly and only by the text dimension column (e.g., `GROUP BY 1`). NEVER append transactional unique keys like `o.order_id` or `oi.product_id` into the GROUP BY block, as it breaks macro aggregation!\n"
+                    f"5. FEW-SHOT LEARNING PATTERN 1 (LOGISTICS DELIVERY CORRELATION):\n"
+                    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, write strictly like this:\n"
                     f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
-                    f"6. FEW-SHOT PRODUCT CATEGORIES PATTERN (Flat native Portuguese layout prioritization):\n"
-                    f"   When asked to assess specific categories, performance, or issues, write strictly like this raw format:\n"
-                    f"   SELECT p.product_category_name, r.review_score, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN orders_dataset o ON oi.order_id = o.order_id JOIN review_dataset r ON o.order_id = r.order_id WHERE p.product_category_name LIKE 'relogios_presentes%' GROUP BY 1, 2 ORDER BY 2 ASC;\n"
+                    f"6. FEW-SHOT LEARNING PATTERN 2 (PRODUCT VERTICALS & SALES PERFORMANCE):\n"
+                    f"   When asked to assess business verticals, product categories, growth, or revenue stall, write strictly like this:\n"
+                    f"   SELECT t.product_category_name_english, SUM(oi.price) AS total_revenue, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp LIKE '2018%' GROUP BY 1 ORDER BY 2 DESC;\n"
                     f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
+
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
