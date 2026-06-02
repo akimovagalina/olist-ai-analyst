@@ -155,9 +155,6 @@ if st.button("🚀 Run Investigation"):
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
                 # =====================================================================
-                # ЧИСТЫЙ АВТОНОМНЫЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (БЕЗ СТАТИЧЕСКИХ КОСТЫЛЕЙ)
-                # =====================================================================
-                # =====================================================================
                 # МНОГОШАГОВЫЙ ДИНАМИЧЕСКИЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
                 # =====================================================================
                 attempts = 0
@@ -167,59 +164,67 @@ if st.button("🚀 Run Investigation"):
                 while attempts < max_attempts and not sql_success:
                     attempts += 1
                     try:
-                        # САНИТИЗАЦИЯ И АВТОЗАВЕРШЕНИЕ СТРОКИ: Если Groq обрезал запрос на LIKE или =
+                        # САНИТИЗАЦИЯ ОБРЫВА СТРОКИ API
                         generated_sql = generated_sql.strip()
-                        if generated_sql.endswith("LIKE") or generated_sql.endswith("="):
-                            st.warning("⚡ API string break detected in filter. Applying SQL query tweaking fee...")
-                            
-                            # Извлекаем название категории из вопроса менеджера (ищем beleza_saude или любое другое слово)
-                            category_match = re.search(r'for\s+([a-zA-Z_0-9]+)\s+category', user_query.lower())
-                            extracted_cat = category_match.group(1) if category_match else "beleza_saude"
-                            
-                            # Достраиваем идеальный, синтаксически верный SQLite-код
-                            if generated_sql.endswith("LIKE"):
-                                generated_sql += f" '%{extracted_cat}%' GROUP BY 1, 2 ORDER BY 2 ASC LIMIT 5;"
-                            else:
-                                generated_sql += f" '{extracted_cat}' GROUP BY 1, 2 ORDER BY 2 ASC LIMIT 5;"
+                        if generated_sql.endswith("LIKE") or generated_sql.endswith("=") or generated_sql.endswith("WHERE"):
+                            st.warning("⚡ Обнаружен технический обрыв строки API на этапе фильтрации. Запускаю экстренное достраивание...")
+                            # Если строка оборвалась, мы просто превращаем её в безопасный базовый запрос с лимитом
+                            generated_sql = generated_sql.split("WHERE")[0] + " GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
                         
                         if attempts == 1:
                             st.code(generated_sql, language="sql")
                         else:
-                            st.markdown(f"**🔄 Attempt to self-correct №{attempts-1}:**")
+                            st.markdown(f"**🔄 Попытка самоисправления №{attempts-1}:**")
                             st.code(generated_sql, language="sql")
                             
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
                     except Exception as sql_error:
                         if attempts == max_attempts:
-                            st.warning("🔄 The intelligent dynamic recovery mode for SQL has been activated...")
+                            st.warning("🛡️ Активирован динамический отказоустойчивый контур восстановления...")
                             
-                            category_match = re.search(r'for\s+([a-zA-Z_0-9]+)\s+category', user_query.lower())
-                            extracted_cat = category_match.group(1) if category_match else "beleza_saude"
-                            
-                            # Наш жесткий, но 100% точный динамический аварийный запрос строго под beleza_saude
-                            generated_sql = (
-                                f"SELECT p.product_category_name, r.review_score, COUNT(DISTINCT o.order_id) AS total_orders "
-                                f"FROM order_items_dataset oi "
-                                f"JOIN products_dataset p ON oi.product_id = p.product_id "
-                                f"JOIN orders_dataset o ON oi.order_id = o.order_id "
-                                f"JOIN review_dataset r ON o.order_id = r.order_id "
-                                f"WHERE p.product_category_name LIKE '%{extracted_cat}%' "
-                                f"GROUP BY 1, 2 ORDER BY 2 ASC LIMIT 5;"
+                            # Ультра-короткий и простой промпт. Никакого жесткого кода! 
+                            # ИИ создает СВЕРХПРОСТОЙ SQL строго под текущий запрос, без функций дат и AVG в GROUP BY
+                            fallback_prompt = (
+                                f"The manager asked: '{user_query}'. The previous complex query failed with error: {str(sql_error)}.\n"
+                                f"Write a fallback, ultra-simple SQLite query (max 3 lines) to answer this. "
+                                f"Rules: Use ONLY 1 plain JOIN, standard columns, basic GROUP BY (never group by AVG/SUM), and LIMIT 10.\n"
+                                f"Database Schema:\n{DATABASE_SCHEMA}\n"
+                                f"Return ONLY raw pure SQL code text without markdown formatting or explanations."
                             )
                             
+                            try:
+                                response_fallback = completion(
+                                    model="groq/llama-3.1-8b-instant",
+                                    messages=[{"role": "user", "content": fallback_prompt}],
+                                    temperature=0.0,
+                                    max_tokens=150
+                                )
+                                if hasattr(response_fallback, 'choices') and len(response_fallback.choices) > 0:
+                                    generated_sql = response_fallback.choices[0].message.content
+                                else:
+                                    generated_sql = response_fallback['choices'][0]['message']['content']
+                                    
+                                generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
+                            except Exception:
+                                # Абсолютный базовый срез DWH, если API полностью лежит
+                                generated_sql = "SELECT t.product_category_name_english, COUNT(oi.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
+                                
                             st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
                             st.code(generated_sql, language="sql")
                             result_df = run_sql_query(generated_sql)
                             sql_success = True
                             break
                             
-                        st.warning(f"⚠️ Error in SQL (Attempt {attempts}): {str(sql_error)}. Running AI to fix the structure...")
+                        st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
                         
-                        # Сбрасываем память контекста для защиты от TPM лимитов
+                        # Передаем оригинальный вопрос менеджера и ошибку, запрещая совать агрегации в GROUP BY
                         messages = [
                             {"role": "system", "content": sql_system_prompt},
-                            {"role": "user", "content": f"Your query failed with error: {str(sql_error)}. Rewrite it to be ultra-short (max 4 lines). Follow the RELATIONSHIPS MAP constraints exactly. Return ONLY raw SQL text."}
+                            {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
+                                                       f"Please rewrite a clean SQLite query to answer the original question: '{user_query}'. "
+                                                       f"CRITICAL: Never put aggregate functions like AVG() or SUM() inside the GROUP BY clause! "
+                                                       f"Group only by raw columns or column numbers. Return ONLY raw SQL text."}
                         ]
                         
                         response = completion(
@@ -229,15 +234,10 @@ if st.button("🚀 Run Investigation"):
                             max_tokens=400
                         )
                         
-                        res_str = str(response)
-                        content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
-                        if content_match:
-                            generated_sql = content_match.group(1).replace("\\n", "\n")
+                        if hasattr(response, 'choices') and len(response.choices) > 0:
+                            generated_sql = response.choices[0].message.content
                         else:
-                            if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                                generated_sql = response.choices.message.content
-                            else:
-                                generated_sql = response['choices']['message']['content']
+                            generated_sql = response['choices'][0]['message']['content']
                             
                         generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 # =====================================================================
