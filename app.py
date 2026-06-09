@@ -106,6 +106,12 @@ default_query = "How do user reviews depend on delivery delay times by days?"
 user_query = st.text_area("✍️ Enter any business question about the Olist database in English:", value=default_query, height=100)
 
 if st.button("🚀 Run Investigation"):
+    # БРОНИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ (ЗАЩИТА ОТ КРАХА ИНТЕРФЕЙСА)
+    generated_sql = ""
+    result_df = pd.DataFrame()
+    compressed_df = pd.DataFrame()
+    final_report = "Не удалось сгенерировать аналитический отчет из-за сбоя на ранних этапах пайплайна."
+
     if not os.environ.get("GROQ_API_KEY"):
         st.error("Please specify a valid GROQ_API_KEY in the Secrets settings!")
     else:
@@ -340,33 +346,33 @@ if st.button("🚀 Run Investigation"):
                 # =====================================================================
                 st.write("🛡️ Шаг 4: Контур автоматической верификации отчета моделью-судьей...")
                 
-                # DEFENSIVE BINDING: Check if the data frame core was successfully built
-                if 'compressed_df' in locals() or 'compressed_df' in globals():
+                # Защищенная проверка: проверяем, удалось ли собрать сжатый датафрейм
+                if not compressed_df.empty:
                     data_payload_string = compressed_df.to_string(index=False)
-                elif 'result_df' in locals() and not result_df.empty:
+                elif not result_df.empty:
                     data_payload_string = result_df.head(15).to_string(index=False)
                 else:
-                    data_payload_string = "NO LIVE DATAFRAME EXTRACTED DUE TO AN EARLY PIPELINE CUTOFF."
-                
-                judge_response = completion(
-                    model="groq/llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": judge_system_prompt},
-                        {"role": "user", "content": f"Исходная таблица из СУБД:\n{data_payload_string}\n\nПроверяемый аналитический отчет:\n{final_report}"}
-                    ],
-                    temperature=0.0,
-                    max_tokens=400
-                )
+                    data_payload_string = "ДАННЫЕ ОТСУТСТВУЮТ ИЗ-ЗА СБОЯ ВЫПОЛНЕНИЯ SQL-ЗАПРОСА."
                 
                 try:
+                    judge_response = completion(
+                        model="groq/llama-3.1-8b-instant",
+                        messages=[
+                            {"role": "system", "content": judge_system_prompt},
+                            {"role": "user", "content": f"Исходная таблица из СУБД:\n{data_payload_string}\n\nПроверяемый аналитический отчет:\n{final_report}"}
+                        ],
+                        temperature=0.0,
+                        max_tokens=400
+                    )
+                    
                     if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
-                        judge_verdict = judge_response.choices[0].message.content
+                        judge_verdict = judge_response.choices.message.content
                     elif isinstance(judge_response, dict) and 'choices' in judge_response and len(judge_response['choices']) > 0:
-                        judge_verdict = judge_response['choices'][0]['message']['content']
+                        judge_verdict = judge_response['choices']['message']['content']
                     else:
                         judge_verdict = str(judge_response)
-                except Exception as judge_parse_err:
-                    judge_verdict = f"🎯 **СТАТУС АУДИТА:** FAILED\n⚠️ Verification parser error: {judge_parse_err}"
+                except Exception as judge_api_err:
+                    judge_verdict = f"🎯 **СТАТУС АУДИТА:** DEFERRED\n⚠️ Ошибка вызова ИИ-судьи: {judge_api_err}"
                 
                 st.subheader("🛡️ Заключение внутреннего аудита качества:")
                 if "PASSED" in judge_verdict.upper():
