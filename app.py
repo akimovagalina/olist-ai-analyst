@@ -138,12 +138,18 @@ if st.button("🚀 Run Investigation"):
                     {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
                 ]
                 
-                response = completion(
-                    model="groq/llama-3.1-8b-instant",
-                    messages=messages,
+                # ЗАПУСКАЕМ КРОСС-МОДЕЛЬНЫЙ АУДИТ ЧЕРЕЗ GOOGLE GEMINI С ЛИМИТОМ 1М ТОКЕНОВ
+                judge_response = completion(
+                    model="gemini/gemini-1.5-flash", # Переключаем роутинг на Google Gemini
+                    messages=[
+                        {"role": "system", "content": judge_system_prompt},
+                        {"role": "user", "content": f"Исходная таблица из СУБД:\n{compressed_df.to_string(index=False)}\n\nПроверяемый аналитический отчет:\n{final_report}"}
+                    ],
                     temperature=0.0,
-                    max_tokens=400
+                    max_tokens=400,
+                    api_key=st.secrets["GEMINI_API_KEY"] # Передаем ключ из секретов Streamlit
                 )
+
                 
                 res_str = str(response)
                 content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
