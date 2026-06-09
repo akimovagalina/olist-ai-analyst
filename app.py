@@ -302,13 +302,6 @@ if st.button("Искать ответы / Run Audit"):
                             compressed_df = result_df.head(15)
                     except Exception:
                         compressed_df = result_df.head(15)
-                        
-                # ЭКСПЕРИМЕНТАЛЬНОЕ ОТРАВЛЕНИЕ ДАННЫХ ДЛЯ ПРОВЕРКИ ИИ-СУДЬИ
-                if not result_df.empty:
-                    # Принудительно ставим аномальную оценку 999.0 для 1 дня задержки
-                    result_df.loc[result_df["delivery_delay_days"] == 1, "avg_score"] = 999.0
-                    # Перезаписываем сжатый датафрейм, чтобы ИИ гарантированно увидел этот бред
-                    compressed_df = result_df.copy()
                 
                 # -------------------------------------------------------------
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
