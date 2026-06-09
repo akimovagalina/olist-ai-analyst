@@ -168,6 +168,7 @@ if st.button("Искать ответы / Run Audit"):
     else:
         # Prevent layout assignment exceptions via early runtime variable caching
         # НАДЕЖНАЯ ЗАЩИТНАЯ ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ В НАЧАЛЕ ЦИКЛА
+        # HARD RESERVED VARIABLES INITIALIZATION FOR STABILITY
         generated_sql = ""
         result_df = pd.DataFrame()
         compressed_df = pd.DataFrame()
@@ -176,7 +177,7 @@ if st.button("Искать ответы / Run Audit"):
         with st.status("🕵️‍♂️ Agent at work... Running ad-hoc structural audit", expanded=True) as status:
             try:
                 # -------------------------------------------------------------
-                # ENGINE STEP 1: ПЕРЕВОД ЕСТЕСТВЕННОГО ЯЗЫКА В SQL-КОД
+                # ENGINE STEP 1: PARSING NATURAL LANGUAGE TO DETERMINISTIC SQL
                 # -------------------------------------------------------------
                 st.write("🤖 Step 1: Generating SQL code based on the table schema...")
                 
@@ -185,22 +186,28 @@ if st.button("Искать ответы / Run Audit"):
                     {"role": "user", "content": f"User's business question: {user_query}"}
                 ]
                 
-                # ПРИНУДИТЕЛЬНО НАПРАВЛЯЕМ ШАГ 1 НА СТАБИЛЬНУЮ ИНФРАСТРУКТУРУ GROQ
                 response = completion(
-                    model="groq/llama-3.1-8b-instant",  # ЖЕСТКАЯ ЗАЩИТА ОТ 404 ОШИБКИ GEMINI
+                    model="groq/llama-3.1-8b-instant",
                     messages=messages,
                     temperature=0.0,
                     max_tokens=400
                 )
                 
-                if hasattr(response, 'choices') and len(response.choices) > 0:
-                    generated_sql = response.choices.message.content
-                else:
-                    generated_sql = response['choices']['message']['content']
+                # FIXED STEP 1 HIGH-RESILIENCY PAYLOAD ARRAYS PARSER
+                try:
+                    if hasattr(response, 'choices') and len(response.choices) > 0:
+                        # Fixed: Added explicit zero array index to safely read the message object
+                        generated_sql = response.choices[0].message.content
+                    elif isinstance(response, dict) and 'choices' in response and len(response['choices']) > 0:
+                        generated_sql = response['choices'][0]['message']['content']
+                    else:
+                        generated_sql = str(response)
+                except Exception as step1_parse_err:
+                    raise RuntimeError(f"Step 1 payload parsing failed: {step1_parse_err}")
                     
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
-                # Автономный ReAct-цикл самоисправления ошибок и защиты от обрезки строк
+                # Resilient ReAct runtime execution loop with built-in auto-completion logic
                 attempts = 0
                 max_attempts = 3
                 sql_success = False
@@ -238,10 +245,11 @@ if st.button("Искать ответы / Run Audit"):
                                     temperature=0.0,
                                     max_tokens=150
                                 )
+                                # FIXED STEP 1 FALLBACK PAYLOAD ARRAYS PARSER
                                 if hasattr(response_fallback, 'choices') and len(response_fallback.choices) > 0:
-                                    generated_sql = response_fallback.choices.message.content
+                                    generated_sql = response_fallback.choices[0].message.content
                                 else:
-                                    generated_sql = response_fallback['choices']['message']['content']
+                                    generated_sql = response_fallback['choices'][0]['message']['content']
                                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                             except Exception:
                                 generated_sql = "SELECT order_status, COUNT(order_id) AS total_orders FROM orders_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
@@ -262,15 +270,16 @@ if st.button("Искать ответы / Run Audit"):
                             messages=messages,
                             temperature=0.0,
                             max_tokens=400
-                        )
+                )
+                        # FIXED STEP 1 LOOP REPAIR PAYLOAD ARRAYS PARSER
                         if hasattr(response, 'choices') and len(response.choices) > 0:
-                            generated_sql = response.choices.message.content
+                            generated_sql = response.choices[0].message.content
                         else:
-                            generated_sql = response['choices']['message']['content']
+                            generated_sql = response['choices'][0]['message']['content']
                         generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
 
                 # -------------------------------------------------------------
-                # ENGINE STEP 2: ФИЛЬТРАЦИЯ И СЖАТИЕ ДАТАФРЕЙМА ПО ШЕННОНУ
+                # ENGINE STEP 2: METADATA INFORMATION SHANNON ENTROPY FILTERS
                 # -------------------------------------------------------------
                 st.write("🔍 Step 2: Executing live query in olist.db and evaluating metrics matrix...")
                 
@@ -286,12 +295,12 @@ if st.button("Искать ответы / Run Audit"):
                         compressed_df = result_df.head(15)
                 
                 # -------------------------------------------------------------
-                # ENGINE STEP 3: СИНТЕЗ КЛИЕНТСКОГО БИЗНЕС-ОТЧЕТА
+                # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
                 # -------------------------------------------------------------
                 st.write("✍️ Step 3: Compiling analytical insights and strategic summary...")
                 
                 report_response = completion(
-                    model="groq/llama-3.1-8b-instant",  # ОТЕЧЕТ ТОЖЕ ПИШЕТ СТАБИЛЬНАЯ LLAMA
+                    model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
                         {"role": "user", "content": f"Calculated relational metrics passed for your strategic evaluation:\n{compressed_df.to_string(index=False)}"}
@@ -300,10 +309,12 @@ if st.button("Искать ответы / Run Audit"):
                     max_tokens=800
                 )
                 
+                # FIXED STEP 3 HIGH-RESILIENCY PAYLOAD ARRAYS PARSER
                 if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
-                    final_report = report_response.choices.message.content
+                    final_report = report_response.choices[0].message.content
                 else:
-                    final_report = report_response['choices']['message']['content']
+                    final_report = report_response['choices'][0]['message']['content']
+
 
                 
                 # -------------------------------------------------------------
