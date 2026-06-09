@@ -263,6 +263,23 @@ if st.button("🚀 Run Investigation"):
                     "| **  3. Your Hypotheses** | *Formulate 2 independent commercial hypotheses about the causes of this distribution (logistics, seasonality, customer behavior)* |\n\n"
                     "| **  4. Recommendation** | *3 specific actions for top management based on your personal insights* |"
                 )
+
+                # =====================================================================
+                # СТРОГИЙ ПРОМПТ ДЛЯ ИИ-СУДЬИ (КОНТУР АВТОМАТИЧЕСКОГО ТЕСТИРОВАНИЯ)
+                # =====================================================================
+                judge_system_prompt = (
+                    "Ты — Главный аудитор качества аналитических систем маркетплейса Olist. Твоя задача — беспристрастно "
+                    "проверить бизнес-отчет младшего аналитика на основе исходной таблицы данных, полученной из СУБД SQLite.\n\n"
+                    "КРИТЕРИИ ОЦЕНКИ:\n"
+                    "1. ФАКТОЛОГИЧЕСКАЯ ТОЧНОСТЬ: Сверь ВСЕ цифры и названия категорий в отчете с исходной таблицей. Если аналитик 'придумал' хоть одну цифру, которой нет в данных, — это ГАЛЛЮЦИНАЦИЯ (FAILED).\n"
+                    "2. МАТЕМАТИЧЕСКАЯ КОРРЕКТНОСТЬ: Пересчитай проценты изменений и разницы, которые вывел аналитик. Правильно ли он сопоставил показатели?\n"
+                    "3. ОТСУТСТВИЕ СДВИГОВ: Убедись, что текст отчета не перемешан и разделы идут строго по порядку.\n\n"
+                    "ВЫВЕДИ СВОЙ ВЕРДИКТ СТРОГО В ВИДЕ КОРОТКОГО РЕЗЮМЕ ПО ФОРМАТУ:\n"
+                    "🎯 **СТАТУС АУДИТА:** [PASSED / FAILED]\n"
+                    "⭐️ **ОЦЕНКА ТОЧНОСТИ:** [от 1 до 5 звезд]\n"
+                    "🔍 **ЗАМЕЧАНИЯ АУДИТОРА:** [напиши, есть ли ошибки, галлюцинации или сдвиги текста. Если все идеально — напиши 'Ошибок не обнаружено. Данные верифицированы.']"
+                )
+                
                 
                 # ДИНАМИЧЕСКОЕ УНИВЕРСАЛЬНОЕ СЖАТИЕ КОНТЕКСТА ПО ОБЪЕМУ ДАННЫХ (БЕЗ ЖЕСТКОГО КОДА)
                 try:
@@ -305,7 +322,37 @@ if st.button("🚀 Run Investigation"):
                 # Выводим текстовый отчет
                 st.subheader(" Final business report from the analyst:")
                 st.markdown(final_report)
+
+                # =====================================================================
+                # ШАГ 4: АВТОНОМНЫЙ КОНТУР ВЕРИФИКАЦИИ ДАННЫХ (LLM-AS-A-JUDGE)
+                # =====================================================================
+                st.write("🛡️ Шаг 4: Контур автоматической верификации отчета моделью-судьей...")
                 
+                # Поскольку бесплатный Groq имеет лимиты, мы просим ту же модель Llama 3.1
+                # выступить в роли независимого жесткого критика самой себя
+                judge_response = completion(
+                    model="groq/llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": judge_system_prompt},
+                        {"role": "user", "content": f"Исходная таблица из СУБД:\n{compressed_df.to_string(index=False)}\n\nПроверяемый аналитический отчет:\n{final_report}"}
+                    ],
+                    temperature=0.0, # Ставим нулевую креативность для максимальной строгости
+                    max_tokens=400
+                )
+                
+                if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
+                    judge_verdict = judge_response.choices.message.content
+                else:
+                    judge_verdict = judge_response['choices']['message']['content']
+                
+                # Выводим вердикт судьи в красивом визуальном блоке
+                st.subheader("🛡️ Заключение внутреннего аудита качества:")
+                if "PASSED" in judge_verdict.upper():
+                    st.success(judge_verdict)
+                else:
+                    st.warning(judge_verdict)
+                # =====================================================================
+
             except Exception as e:
                 status.update(label="❌ Runtime error", state="error", expanded=False)
                 st.error(f"Technical failure: {e}")
