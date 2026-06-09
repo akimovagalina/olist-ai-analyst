@@ -32,7 +32,7 @@ if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
 # SECURE AUTOMATIC LARGE REPOSITORY DATASET INGESTION CORE
 # =====================================================================
 DB_PATH = "olist.db"
-DDB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
 
 # Force cache eviction if an outdated, corrupted, or clipped asset is detected
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 90000000:
