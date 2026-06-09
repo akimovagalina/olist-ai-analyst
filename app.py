@@ -26,6 +26,7 @@ st.subheader("Fully connected end-to-end ad-hoc audit of e-commerce architecture
 
 # Secure background environmental setup for credentials injection
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
+    os.environ["GEMINI_API_VERSION"] = "v1"
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 # =====================================================================
@@ -331,9 +332,9 @@ if st.button("Искать ответы / Run Audit"):
                     data_payload_string = "NO SYSTEM DATA DETECTED DUE TO AN EARLY PIPELINE CUTOFF."
                 
                 try:
-                    # ИСПОЛЬЗУЕМ ОБНОВЛЕННЫЙ ОФИЦИАЛЬНЫЙ СИСТЕМНЫЙ РОУТ ДЛЯ GOOGLE AI STUDIO
+                    # Utilizing the explicit, cloud-native model path route
                     judge_response = completion(
-                        model="gemini/gemini-1.5-flash",  # Каноническое имя модели для LiteLLM
+                        model="google/gemini-1.5-flash",  # Changed from gemini/gemini-1.5-flash
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
@@ -342,6 +343,7 @@ if st.button("Искать ответы / Run Audit"):
                         max_tokens=400,
                         api_key=st.secrets["GEMINI_API_KEY"]
                     )
+
 
 
                     
