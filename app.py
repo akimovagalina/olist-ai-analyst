@@ -331,9 +331,9 @@ if st.button("Искать ответы / Run Audit"):
                     data_payload_string = "NO SYSTEM DATA DETECTED DUE TO AN EARLY PIPELINE CUTOFF."
                 
                 try:
-                    # Explicit canonical model identifier route utilizing your Streamlit Secrets token
+                    # ИСПОЛЬЗУЕМ ОБНОВЛЕННЫЙ ОФИЦИАЛЬНЫЙ СИСТЕМНЫЙ РОУТ ДЛЯ GOOGLE AI STUDIO
                     judge_response = completion(
-                        model="gemini/gemini-1.5-pro",  
+                        model="gemini/gemini-1.5-flash",  # Каноническое имя модели для LiteLLM
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
@@ -342,6 +342,7 @@ if st.button("Искать ответы / Run Audit"):
                         max_tokens=400,
                         api_key=st.secrets["GEMINI_API_KEY"]
                     )
+
 
                     
                     # High-resiliency dictionary and object choices array payload parser
