@@ -297,19 +297,11 @@ if st.button("Искать ответы / Run Audit"):
                         numeric_cols = result_df.select_dtypes(include=['number']).columns.tolist()
                         if numeric_cols:
                             sort_target = max(numeric_cols, key=lambda col: result_df[col].nunique())
-                            compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15).copy()
+                            compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
                         else:
-                            compressed_df = result_df.head(15).copy()
-                        
-                        # ХАК ДЛЯ ИСПРАВЛЕНИЯ ЛОГИКИ ИИ: Если в таблице есть колонка дней задержки,
-                        # мы принудительно переводим сухие числа в понятные текстовые маркеры!
-                        if 'delivery_delay_days' in compressed_df.columns:
-                            compressed_df['delivery_delay_days'] = compressed_df['delivery_delay_days'].apply(
-                                lambda x: f"Delivered EARLY by {abs(x)} days" if x < 0 else (f"Delivered LATE by {x} days" if x > 0 else "Delivered EXACTLY on time")
-                            )
+                            compressed_df = result_df.head(15)
                     except Exception:
                         compressed_df = result_df.head(15)
-
                 
                 # -------------------------------------------------------------
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
