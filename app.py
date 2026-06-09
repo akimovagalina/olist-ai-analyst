@@ -185,7 +185,7 @@ if st.button("Искать ответы / Run Audit"):
                 ]
                 
                 response = completion(
-                    model="gemini/gemini-1.5-flash"  # Change from gemini-1.5-flash-latest to just gemini-1.5-flash
+                    model="gemini/gemini-1.5-flash",  # Change from gemini-1.5-flash-latest to just gemini-1.5-flash
                     messages=messages,
                     temperature=0.0,
                     max_tokens=400
