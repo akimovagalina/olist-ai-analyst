@@ -306,7 +306,8 @@ if st.button("Искать ответы / Run Audit"):
                 # -------------------------------------------------------------
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
                 # -------------------------------------------------------------
-
+                st.write("🧠 Step 3: Synthesizing executive insights report based on the data...")
+                st.write(compressed_df)
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
