@@ -354,9 +354,10 @@ if st.button("🚀 Run Investigation"):
                 else:
                     data_payload_string = "ДАННЫЕ ОТСУТСТВУЮТ ИЗ-ЗА СБОЯ ВЫПОЛНЕНИЯ SQL-ЗАПРОСА."
                 
+                # OPTION A: STABLE GROQ ROUTE (RECOMMENDED FOR ZERO CONFLICTS)
                 try:
                     judge_response = completion(
-                        model="groq/llama-3.1-8b-instant",
+                        model="groq/llama-3.1-8b-instant", # Clean, supported route
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Исходная таблица из СУБД:\n{data_payload_string}\n\nПроверяемый аналитический отчет:\n{final_report}"}
@@ -364,6 +365,7 @@ if st.button("🚀 Run Investigation"):
                         temperature=0.0,
                         max_tokens=400
                     )
+
                     
                     if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
                         judge_verdict = judge_response.choices.message.content
