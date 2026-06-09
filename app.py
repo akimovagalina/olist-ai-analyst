@@ -332,9 +332,9 @@ if st.button("Искать ответы / Run Audit"):
                     data_payload_string = "NO SYSTEM DATA DETECTED DUE TO AN EARLY PIPELINE CUTOFF."
                 
                 try:
-                    # ИСПОЛЬЗУЕМ ТЯЖЕЛУЮ КРОСС-МОДЕЛЬ MIXTRAL С ОТДЕЛЬНЫМИ ЛИМИТАМИ ТОКЕНОВ
+                    # ПОДКЛЮЧАЕМ АКТУАЛЬНЫЙ ФЛАГ ТЯЖЕЛОЙ МОДЕЛИ LLAMA 3.3 70B НА РОЛЬ СУДЬИ
                     judge_response = completion(
-                        model="groq/mixtral-8x7b-32768",  # Идеальный независимый ИИ-Судья
+                        model="groq/llama-3.3-70b-versatile",  # Официальный преемник Mixtral
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
@@ -343,13 +343,6 @@ if st.button("Искать ответы / Run Audit"):
                         max_tokens=400
                     )
 
-
-
-
-
-
-
-                    
                     # High-resiliency dictionary and object choices array payload parser
                     if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
                         judge_verdict = judge_response.choices[0].message.content
