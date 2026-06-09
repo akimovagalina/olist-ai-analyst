@@ -167,6 +167,7 @@ if st.button("Искать ответы / Run Audit"):
         st.error("Please provide a valid question framework.")
     else:
         # Prevent layout assignment exceptions via early runtime variable caching
+        # НАДЕЖНАЯ ЗАЩИТНАЯ ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ В НАЧАЛЕ ЦИКЛА
         generated_sql = ""
         result_df = pd.DataFrame()
         compressed_df = pd.DataFrame()
@@ -175,7 +176,7 @@ if st.button("Искать ответы / Run Audit"):
         with st.status("🕵️‍♂️ Agent at work... Running ad-hoc structural audit", expanded=True) as status:
             try:
                 # -------------------------------------------------------------
-                # ENGINE STEP 1: PARSING NATURAL LANGUAGE TO DETERMINISTIC SQL
+                # ENGINE STEP 1: ПЕРЕВОД ЕСТЕСТВЕННОГО ЯЗЫКА В SQL-КОД
                 # -------------------------------------------------------------
                 st.write("🤖 Step 1: Generating SQL code based on the table schema...")
                 
@@ -184,21 +185,22 @@ if st.button("Искать ответы / Run Audit"):
                     {"role": "user", "content": f"User's business question: {user_query}"}
                 ]
                 
+                # ПРИНУДИТЕЛЬНО НАПРАВЛЯЕМ ШАГ 1 НА СТАБИЛЬНУЮ ИНФРАСТРУКТУРУ GROQ
                 response = completion(
-                    model="gemini/gemini-1.5-flash",  # Change from gemini-1.5-flash-latest to just gemini-1.5-flash
+                    model="groq/llama-3.1-8b-instant",  # ЖЕСТКАЯ ЗАЩИТА ОТ 404 ОШИБКИ GEMINI
                     messages=messages,
                     temperature=0.0,
                     max_tokens=400
                 )
                 
                 if hasattr(response, 'choices') and len(response.choices) > 0:
-                    generated_sql = response.choices[0].message.content
+                    generated_sql = response.choices.message.content
                 else:
-                    generated_sql = response['choices'][0]['message']['content']
+                    generated_sql = response['choices']['message']['content']
                     
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
-                # Resilient ReAct runtime execution loop with built-in auto-completion logic
+                # Автономный ReAct-цикл самоисправления ошибок и защиты от обрезки строк
                 attempts = 0
                 max_attempts = 3
                 sql_success = False
@@ -209,7 +211,7 @@ if st.button("Искать ответы / Run Audit"):
                         generated_sql = generated_sql.strip()
                         if generated_sql.endswith("LIKE") or generated_sql.endswith("=") or generated_sql.endswith("WHERE"):
                             st.warning("⚡ API line cutoff caught at filtering block. Applying programmatic string completion...")
-                            generated_sql = generated_sql.split("WHERE")[0] + " GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
+                            generated_sql = generated_sql.split("WHERE") + " GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
                         
                         if attempts == 1:
                             st.code(generated_sql, language="sql")
@@ -237,9 +239,9 @@ if st.button("Искать ответы / Run Audit"):
                                     max_tokens=150
                                 )
                                 if hasattr(response_fallback, 'choices') and len(response_fallback.choices) > 0:
-                                    generated_sql = response_fallback.choices[0].message.content
+                                    generated_sql = response_fallback.choices.message.content
                                 else:
-                                    generated_sql = response_fallback['choices'][0]['message']['content']
+                                    generated_sql = response_fallback['choices']['message']['content']
                                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                             except Exception:
                                 generated_sql = "SELECT order_status, COUNT(order_id) AS total_orders FROM orders_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
@@ -262,13 +264,13 @@ if st.button("Искать ответы / Run Audit"):
                             max_tokens=400
                         )
                         if hasattr(response, 'choices') and len(response.choices) > 0:
-                            generated_sql = response.choices[0].message.content
+                            generated_sql = response.choices.message.content
                         else:
-                            generated_sql = response['choices'][0]['message']['content']
+                            generated_sql = response['choices']['message']['content']
                         generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
 
                 # -------------------------------------------------------------
-                # ENGINE STEP 2: METADATA INFORMATION SHANNON ENTROPY FILTERS
+                # ENGINE STEP 2: ФИЛЬТРАЦИЯ И СЖАТИЕ ДАТАФРЕЙМА ПО ШЕННОНУ
                 # -------------------------------------------------------------
                 st.write("🔍 Step 2: Executing live query in olist.db and evaluating metrics matrix...")
                 
@@ -284,12 +286,12 @@ if st.button("Искать ответы / Run Audit"):
                         compressed_df = result_df.head(15)
                 
                 # -------------------------------------------------------------
-                # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
+                # ENGINE STEP 3: СИНТЕЗ КЛИЕНТСКОГО БИЗНЕС-ОТЧЕТА
                 # -------------------------------------------------------------
                 st.write("✍️ Step 3: Compiling analytical insights and strategic summary...")
                 
                 report_response = completion(
-                    model="groq/llama-3.1-8b-instant",
+                    model="groq/llama-3.1-8b-instant",  # ОТЕЧЕТ ТОЖЕ ПИШЕТ СТАБИЛЬНАЯ LLAMA
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
                         {"role": "user", "content": f"Calculated relational metrics passed for your strategic evaluation:\n{compressed_df.to_string(index=False)}"}
@@ -299,9 +301,10 @@ if st.button("Искать ответы / Run Audit"):
                 )
                 
                 if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
-                    final_report = report_response.choices[0].message.content
+                    final_report = report_response.choices.message.content
                 else:
-                    final_report = report_response['choices'][0]['message']['content']
+                    final_report = report_response['choices']['message']['content']
+
                 
                 # -------------------------------------------------------------
                 # ENGINE STEP 4: CROSS-MODEL AI-AS-A-JUDGE VERIFICATION LOOP
