@@ -296,7 +296,7 @@ if st.button("Искать ответы / Run Audit"):
                     try:
                         numeric_cols = result_df.select_dtypes(include=['number']).columns.tolist()
                         if numeric_cols:
-                            sort_target = max(numeric_cols, key=lambda col: result_df[col].nunique())
+                            sort_target = max(numeric_cols, key=lambda col: result_df[col].sum())
                             compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
                         else:
                             compressed_df = result_df.head(15)
