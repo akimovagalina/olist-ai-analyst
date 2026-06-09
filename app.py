@@ -332,17 +332,19 @@ if st.button("Искать ответы / Run Audit"):
                     data_payload_string = "NO SYSTEM DATA DETECTED DUE TO AN EARLY PIPELINE CUTOFF."
                 
                 try:
-                    # Utilizing the explicit, cloud-native model path route
+                    # Target the correct gemini/ namespace combined with a forced stable API version flag
                     judge_response = completion(
-                        model="google/gemini-1.5-flash",  # Changed from gemini/gemini-1.5-flash
+                        model="gemini/gemini-1.5-flash",  # Fixed provider tag prefix
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
                         ],
                         temperature=0.0,
                         max_tokens=400,
+                        api_version="v1",  # Forced stable production API version channel
                         api_key=st.secrets["GEMINI_API_KEY"]
                     )
+
 
 
 
