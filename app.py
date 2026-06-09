@@ -307,7 +307,11 @@ if st.button("Искать ответы / Run Audit"):
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
                 # -------------------------------------------------------------
                 st.write("✍️ Step 3: Compiling analytical insights and strategic summary...")
-                
+                st.write(compressed_df)
+                compressed_df.loc[
+                compressed_df["delivery_delay_days"] == -10,
+                "avg_score"
+                ] = 999
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
