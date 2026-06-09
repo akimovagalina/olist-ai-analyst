@@ -340,10 +340,17 @@ if st.button("🚀 Run Investigation"):
                     max_tokens=400
                 )
                 
-                if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
-                    judge_verdict = judge_response.choices.message.content
-                else:
-                    judge_verdict = judge_response['choices']['message']['content']
+                # FIXED HIGH-RESILIENCY PAYLOAD ARRAYS PARSER FOR STEP 4
+                try:
+                    if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
+                        # Fixed: Added [0] array index to safely read the first message object
+                        judge_verdict = judge_response.choices[0].message.content
+                    elif isinstance(judge_response, dict) and 'choices' in judge_response and len(judge_response['choices']) > 0:
+                        judge_verdict = judge_response['choices'][0]['message']['content']
+                    else:
+                        judge_verdict = str(judge_response)
+                except Exception as judge_parse_err:
+                    judge_verdict = f"🎯 **STATUS:** AUDIT DEFERRED\n⚠️ Verification parser error: {judge_parse_err}"
                 
                 # Выводим вердикт судьи в красивом визуальном блоке
                 st.subheader("🛡️ Заключение внутреннего аудита качества:")
@@ -356,4 +363,5 @@ if st.button("🚀 Run Investigation"):
             except Exception as e:
                 status.update(label="❌ Runtime error", state="error", expanded=False)
                 st.error(f"Technical failure: {e}")
+
 
