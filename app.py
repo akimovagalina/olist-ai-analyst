@@ -332,18 +332,18 @@ if st.button("Искать ответы / Run Audit"):
                     data_payload_string = "NO SYSTEM DATA DETECTED DUE TO AN EARLY PIPELINE CUTOFF."
                 
                 try:
-                    # НАПРАВЛЯЕМ ЗАПРОС ЧЕРЕЗ СТАБИЛЬНЫЙ ПРОМЫШЛЕННЫЙ КАНАЛ API V1
+                    # Using the stable, universal model identifier path for Google AI Studio
                     judge_response = completion(
-                        model="gemini/gemini-1.5-flash",  # Оставляем каноническое имя модели
+                        model="gemini/gemini-pro",  # Clean production endpoint path
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
                         ],
                         temperature=0.0,
                         max_tokens=400,
-                        api_version="v1",  # ЖЕСТКО ФОРСИРУЕМ РАБОЧУЮ ВЕРСИЮ API GOOGLE!
                         api_key=st.secrets["GEMINI_API_KEY"]
                     )
+
 
 
 
