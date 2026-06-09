@@ -336,31 +336,34 @@ if st.button("🚀 Run Investigation"):
                 # =====================================================================
                 st.write("🛡️ Шаг 4: Контур автоматической верификации отчета моделью-судьей...")
                 
-                # Поскольку бесплатный Groq имеет лимиты, мы просим ту же модель Llama 3.1
-                # выступить в роли независимого жесткого критика самой себя
+                # DEFENSIVE BINDING: Check if the data frame core was successfully built
+                if 'compressed_df' in locals() or 'compressed_df' in globals():
+                    data_payload_string = compressed_df.to_string(index=False)
+                elif 'result_df' in locals() and not result_df.empty:
+                    data_payload_string = result_df.head(15).to_string(index=False)
+                else:
+                    data_payload_string = "NO LIVE DATAFRAME EXTRACTED DUE TO AN EARLY PIPELINE CUTOFF."
+                
                 judge_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": judge_system_prompt},
-                        {"role": "user", "content": f"Исходная таблица из СУБД:\n{compressed_df.to_string(index=False)}\n\nПроверяемый аналитический отчет:\n{final_report}"}
+                        {"role": "user", "content": f"Исходная таблица из СУБД:\n{data_payload_string}\n\nПроверяемый аналитический отчет:\n{final_report}"}
                     ],
-                    temperature=0.0, # Ставим нулевую креативность для максимальной строгости
+                    temperature=0.0,
                     max_tokens=400
                 )
                 
-                # FIXED HIGH-RESILIENCY PAYLOAD ARRAYS PARSER FOR STEP 4
                 try:
                     if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
-                        # Fixed: Added [0] array index to safely read the first message object
                         judge_verdict = judge_response.choices[0].message.content
                     elif isinstance(judge_response, dict) and 'choices' in judge_response and len(judge_response['choices']) > 0:
                         judge_verdict = judge_response['choices'][0]['message']['content']
                     else:
                         judge_verdict = str(judge_response)
                 except Exception as judge_parse_err:
-                    judge_verdict = f"🎯 **STATUS:** AUDIT DEFERRED\n⚠️ Verification parser error: {judge_parse_err}"
+                    judge_verdict = f"🎯 **СТАТУС АУДИТА:** FAILED\n⚠️ Verification parser error: {judge_parse_err}"
                 
-                # Выводим вердикт судьи в красивом визуальном блоке
                 st.subheader("🛡️ Заключение внутреннего аудита качества:")
                 if "PASSED" in judge_verdict.upper():
                     st.success(judge_verdict)
@@ -371,5 +374,3 @@ if st.button("🚀 Run Investigation"):
             except Exception as e:
                 status.update(label="❌ Runtime error", state="error", expanded=False)
                 st.error(f"Technical failure: {e}")
-
-
