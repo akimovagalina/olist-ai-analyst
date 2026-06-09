@@ -114,23 +114,27 @@ if st.button("🚀 Run Investigation"):
                 st.write(" Step 1: Generating SQL code based on the table schema...")
                 
                  # УНИВЕРСАЛЬНЫЙ ДВУХШАГОВЫЙ FEW-SHOT ПРОМПТ (ЛОГИСТИКА + БИЗНЕС-ВЕРТИКАЛИ)
+                # =====================================================================
+                # СИНТАКСИЧЕСКИ ИСПРАВЛЕННЫЙ ЭТАЛОННЫЙ ПРОМПТ ГЕНЕРАЦИИ SQL
+                # =====================================================================
                 sql_system_prompt = (
                     f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
                     f"CRITICAL RULES:\n"
                     f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
-                    f"2. ULTRA-COMPACT CODE: Keep the query under 6 lines. Never use verbose multi-line CASE WHEN statements.\n"
+                    f"2. ULTRA-COMPACT CODE: Keep the query under 8 lines. Never use verbose multi-line statements.\n"
                     f"3. STRICT REVENUE AGGREGATION RULE:\n"
-                    f"   When asked about business verticals, revenue growth, stagnation, stalled performance, or sales totals, you MUST calculate the total revenue using `SUM(oi.price) AS total_revenue` and pair it with `COUNT(DISTINCT o.order_id) AS total_orders`.\n"
+                    f"   When asked about business verticals, revenue growth, stagnation, stalled performance, or sales totals, you MUST calculate the total revenue using SUM(oi.price) AS total_revenue and pair it with COUNT(DISTINCT o.order_id) AS total_orders.\n"
                     f"4. STRICT GROUP BY RULE:\n"
-                    f"   Always group strictly and only by the text dimension column (e.g., `GROUP BY 1`). NEVER append transactional unique keys like `o.order_id` or `oi.product_id` into the GROUP BY block, as it breaks macro aggregation!\n"
+                    f"   Always group strictly and only by the text dimension column (e.g., GROUP BY 1). NEVER append transactional unique keys like o.order_id or oi.product_id into the GROUP BY block, as it breaks macro aggregation!\n"
                     f"5. FEW-SHOT LEARNING PATTERN 1 (LOGISTICS DELIVERY CORRELATION):\n"
-                    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, write strictly like this:\n"
+                    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, write strictly like this using a clean CASE block without single-quote syntax breaks:\n"
                     f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
                     f"6. FEW-SHOT LEARNING PATTERN 2 (PRODUCT VERTICALS & SALES PERFORMANCE):\n"
                     f"   When asked to assess business verticals, product categories, growth, or revenue stall, write strictly like this:\n"
                     f"   SELECT t.product_category_name_english, SUM(oi.price) AS total_revenue, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp LIKE '2018%' GROUP BY 1 ORDER BY 2 DESC;\n"
                     f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
                 )
+
 
                 # =====================================================================
                 # СТРОГИЙ ПРОМПТ ДЛЯ ИИ-СУДЬИ (ОБЪЯВЛЕНИЕ В НАЧАЛЕ ФАЙЛА)
