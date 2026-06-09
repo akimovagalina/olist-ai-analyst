@@ -319,7 +319,7 @@ if st.button("Искать ответы / Run Audit"):
                 try:
                     # Explicit canonical model identifier route utilizing your Streamlit Secrets token
                     judge_response = completion(
-                        model="gemini/gemini-1.5-flash-latest",
+                        model="gemini/gemini-1.5-flash",  # Обновляем имя (убираем -latest)
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
@@ -328,6 +328,7 @@ if st.button("Искать ответы / Run Audit"):
                         max_tokens=400,
                         api_key=st.secrets["GEMINI_API_KEY"]
                     )
+
                     
                     # High-resiliency dictionary and object choices array payload parser
                     if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
