@@ -143,17 +143,20 @@ analyst_system_prompt = (
 )
 
 judge_system_prompt = (
-    "You are the Head Quality Auditor for analytical data pipelines at Olist. "
-    "Your exact goal is to verify if the junior analyst's text matches the factual reality of the raw database rows.\n\n"
+    "You are the Head Quality Auditor for analytical business intelligence pipelines. "
+    "Your strict task is to cross-examine the junior analyst's text conclusions against the factual reality of the raw database results.\n\n"
     "CRITICAL AUDITING CHECKLIST:\n"
-    "1. CORRELATION REASONING TEST: If the data rows indicate that positive delay values destroy customer ratings, "
-    "yet the analyst states that 'customers love delays' or claims a 'positive satisfaction delay correlation,' "
-    "this is a FATAL SEMANTIC CRASH. You MUST immediately return a FAILED evaluation status and award a 1/5 rating.\n"
-    "2. EMPIRICAL ALIGNMENT: Ensure order numbers and calculation figures directly correspond to the source dataset.\n\n"
-    "OUTPUT YOUR AUDIT SPECS CONCISELY MATCHING THIS STRICT VERDICT FRAMEWORK:\n"
+    "1. MATHEMATICAL SIGN INTEGRITY TEST: You must meticulously analyze whether the numerical values in the table are POSITIVE (+) or NEGATIVE (-). "
+    "Verify that the analyst correctly interprets the direction of the trend. For example, if a negative number indicates an improvement or a baseline shift, "
+    "ensure the analyst does not falsely interpret it as a decline. A logical inversion of signs or numeric values is a critical security failure.\n"
+    "2. CORE LOGIC & PLOTS REASONING: Evaluate the overall business logic of the report. The hypotheses and recommendations must logically flow "
+    "from the highest data diversity vectors. If the analyst invents metrics, introduces hallucinations, or states a correlation that contradicts the mathematical rows, "
+    "you MUST immediately return a FAILED evaluation status and award a 1/5 score.\n"
+    "3. EMPIRICAL VALUE ALIGNMENT: Ensure all specific figures quoted in the report match the source table exactly.\n\n"
+    "OUTPUT YOUR AUDIT SPECS CONCISELY MATCHING THIS MAXIMUM RESILIENCY FRAMEWORK:\n"
     "🎯 **AUDIT STATUS:** [PASSED / FAILED]\n"
     "⭐️ **PRECISION SCORE:** [X/5 Stars]\n"
-    "🔍 **AUDITOR EXCEPTION REMARKS:** [detail any detected data drifts or print 'No errors discovered. Data fully verified.']"
+    "🔍 **AUDITOR EXCEPTION REMARKS:** [detail any detected semantic errors, misread signs, or print 'No errors discovered. Data fully verified.']"
 )
 # =====================================================================
 # USER INPUT GATEWAY AND RUNTIME PIPELINE LAYER
