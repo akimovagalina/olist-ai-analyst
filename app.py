@@ -333,7 +333,7 @@ if st.button("Искать ответы / Run Audit"):
                 try:
                     # Explicit canonical model identifier route utilizing your Streamlit Secrets token
                     judge_response = completion(
-                        model="gemini/gemini-pro",  # Обновляем имя (убираем -latest)
+                        model="model="gemini/gemini-1.5-pro",  
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
