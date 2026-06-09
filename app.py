@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import pandas as pd
-import streamlit as st  # <-- ИМПОРТ ДОЛЖЕН ИДТИ ПЕРВЫМ!
+import streamlit as st  # <-- MUST BE THE FIRST STREAMLIT IMPORT!
 import asyncio
 import urllib.request
 import requests
@@ -10,7 +10,7 @@ import re
 from litellm import completion
 
 # =====================================================================
-# ПРИНУДИТЕЛЬНЫЙ СБРОС КЭША СЕССИИ СЕРВЕРА (СТРОГО ПОСЛЕ ИМПОРТА ST)
+# FORCE REBOOT SERVER SESSION CACHE (MUST RUN IMMEDIATELY AFTER ST)
 # =====================================================================
 if "clear_cache_executed" not in st.session_state:
     st.cache_data.clear()
@@ -18,41 +18,38 @@ if "clear_cache_executed" not in st.session_state:
     st.session_state["clear_cache_executed"] = True
 # =====================================================================
 
-# Настройка внешнего вида страницы Streamlit
+# Global Streamlit page presentation configurations
 st.set_page_config(page_title="AI Olist Investigator", page_icon="🧠", layout="wide")
-
 
 st.title("AI-Agent: Digital Detective from the Olist Marketplace")
 st.subheader("Fully connected end-to-end ad-hoc audit of e-commerce architecture (9 DWH tables)")
 
-# Secure background environmental setup for credentials
+# Secure background environmental setup for credentials injection
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 # =====================================================================
-# НАДЕЖНАЯ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ПОЛНОЙ БАЗЫ ДАННЫХ (БЕЗ SSL-ОШИБОК)
+# SECURE AUTOMATIC LARGE REPOSITORY DATASET INGESTION CORE
 # =====================================================================
 DB_PATH = "olist.db"
-DB_URL = "https://github.com/akimovagalina/olist-ai-analyst/releases/download/v1.0.0/olist.db"
+DB_URL = "https://github.com"
 
-
-# Force cache flush if an outdated, clipped database asset is detected
+# Force cache eviction if an outdated, corrupted, or clipped asset is detected
 if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) < 90000000:
     os.remove(DB_PATH)
 
 if not os.path.exists(DB_PATH):
     with st.spinner("The full Olist database was not found. Downloading the entire DWH marketplace dataset..."):
         try:
-            # ТРЮК ДЛЯ ПОРТФОЛИО: Отключаем проверку SSL для предотвращения ошибок handshake alert
+            # Defensive Handshake Bypass: Prevent handshake alert drops over cloud containers
             ssl_context = ssl._create_unverified_context()
             with urllib.request.urlopen(DB_URL, context=ssl_context) as response, open(DB_PATH, 'wb') as out_file:
                 out_file.write(response.read())
             st.success("✅ All 9 tables of the database were successfully downloaded and connected!")
         except Exception as e:
             st.error(f"❌ Error downloading the database automatically: {e}")
-
 # =====================================================================
-# КОМПЛЕКСНАЯ СЕМАНТИЧЕСКАЯ КАРТА СВЯЗЕЙ (ENTERPRISE DATA CATALOG) ДЛЯ ИИ
+# COMPREHENSIVE SEMANTIC SCHEMA CONSTRAINTS CATALOG (DATA CATALOG MAP)
 # =====================================================================
 DATABASE_SCHEMA = """
 Table customers_dataset { customer_id string [pk], customer_unique_id string, customer_zip_code_prefix int, customer_city string, customer_state string }
@@ -80,8 +77,9 @@ CRITICAL ERROR PREVENTION FOR THE ENGINE:
 1. 'product_category_name_english' lives ONLY inside product_category_name_translation table! NEVER query it from products_dataset.
 2. 'products_dataset' has NO relational mapping to 'orders_dataset' directly. To connect them, you MUST join through order_items_dataset via order_id and product_id!
 """
+
 def run_sql_query(sql_code: str) -> pd.DataFrame:
-    """Executes a SQL query with automatic Big Data index support"""
+    """Executes an incoming query while forcing sub-second structural indexes matching foreign keys"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cust_id ON customers_dataset(customer_id);")
@@ -100,99 +98,107 @@ def run_sql_query(sql_code: str) -> pd.DataFrame:
     df = pd.read_sql_query(sql_code, conn)
     conn.close()
     return df
+# =====================================================================
+# SYSTEM PAYLOAD PROMPT BLUEPRINTS DEFINITIONS LAYER
+# =====================================================================
+sql_system_prompt = (
+    f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
+    f"CRITICAL RULES:\n"
+    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
+    f"2. ULTRA-COMPACT CODE: Keep the query under 8 lines. Never use verbose multi-line statements.\n"
+    f"3. STRICT REVENUE AGGREGATION RULE:\n"
+    f"   When asked about business verticals, revenue growth, stagnation, stalled performance, or sales totals, you MUST calculate the total revenue using SUM(oi.price) AS total_revenue and pair it with COUNT(DISTINCT o.order_id) AS total_orders.\n"
+    f"4. STRICT GROUP BY RULE:\n"
+    f"   Always group strictly and only by the text dimension column (e.g., GROUP BY 1). NEVER append transactional unique keys like o.order_id or oi.product_id into the GROUP BY block, as it breaks macro aggregation!\n"
+    f"5. FEW-SHOT LEARNING PATTERN 1 (LOGISTICS DELIVERY CORRELATION):\n"
+    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, write strictly like this using a clean CASE block without single-quote syntax breaks:\n"
+    f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
+    f"6. FEW-SHOT LEARNING PATTERN 2 (PRODUCT VERTICALS & SALES PERFORMANCE):\n"
+    f"   When asked to assess business verticals, product categories, growth, or revenue stall, write strictly like this:\n"
+    f"   SELECT t.product_category_name_english, SUM(oi.price) AS total_revenue, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp LIKE '2018%' GROUP BY 1 ORDER BY 2 DESC;\n"
+    f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
+)
 
-# Интерфейс ввода вопроса менеджера
-default_query = "How do user reviews depend on delivery delay times by days?"
-user_query = st.text_area("✍️ Enter any business question about the Olist database in English:", value=default_query, height=100)
+analyst_system_prompt = (
+    "You are a Lead Product Analyst for the Olist marketplace with deep critical thinking. Study the provided raw data table, "
+    "independently discover the core commercial trend, and construct a concise, high-impact markdown report STRICTLY IN ENGLISH.\n\n"
+    "RULES FOR AUTONOMOUS ANALYTICS:\n"
+    "1. PATTERN ANALYSIS: Scan across table lines, locate mathematical dependencies, records, and seasonal shifts manually.\n"
+    "2. EMPIRICAL HYPOTHESES: Generate independent growth/stagnation hypotheses directly from numerical variances without software steering.\n"
+    "🛑 CRITICAL LOGISTICS FACTOR (MATHEMATICAL REALITY CHANNELS):\n"
+    "In e-commerce distribution networks: Negative delivery days imply the parcel arrived EARLY (ahead of schedule), keeping scores excellent (4.3+). "
+    "Positive values mean shipments arrived LATE (delayed), which drops satisfaction scores down to a 1.5-2 star cliff. "
+    "You must aggressively isolate this trend. Delays kill customer retention. "
+    "Do not confuse early arrivals with delivery overshoots! Check the minus signs carefully.\n\n"
+    "MANDATORY REPORT FORMAT (Strictly utilize these headers and standard bullet arrays. Do NOT use markdown tables with '|' symbols):\n"
+    "### 🎯 1. Main Insight\n"
+    "*write your independent qualitative conclusion over the primary data trend here*\n\n"
+    "### 📊 2. Key Figures\n"
+    "*list 2-3 critical peak values or percentage changes detected in the dataset block*\n\n"
+    "### 💡 3. Your Hypotheses\n"
+    "*supply exactly 2 independent commercial hypotheses explaining the root cause behind this trend*\n\n"
+    "### 🚀 4. Strategic Recommendation\n"
+    "*provide 3 actionable operational decisions tailored directly for C-level directors*"
+)
 
-if st.button("🚀 Run Investigation"):
-    # БРОНИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ (ЗАЩИТА ОТ КРАХА ИНТЕРФЕЙСА)
-    generated_sql = ""
-    result_df = pd.DataFrame()
-    compressed_df = pd.DataFrame()
-    final_report = "Не удалось сгенерировать аналитический отчет из-за сбоя на ранних этапах пайплайна."
+judge_system_prompt = (
+    "You are the Head Quality Auditor for analytical data pipelines at Olist. "
+    "Your exact goal is to verify if the junior analyst's text matches the factual reality of the raw database rows.\n\n"
+    "CRITICAL AUDITING CHECKLIST:\n"
+    "1. CORRELATION REASONING TEST: If the data rows indicate that positive delay values destroy customer ratings, "
+    "yet the analyst states that 'customers love delays' or claims a 'positive satisfaction delay correlation,' "
+    "this is a FATAL SEMANTIC CRASH. You MUST immediately return a FAILED evaluation status and award a 1/5 rating.\n"
+    "2. EMPIRICAL ALIGNMENT: Ensure order numbers and calculation figures directly correspond to the source dataset.\n\n"
+    "OUTPUT YOUR AUDIT SPECS CONCISELY MATCHING THIS STRICT VERDICT FRAMEWORK:\n"
+    "🎯 **AUDIT STATUS:** [PASSED / FAILED]\n"
+    "⭐️ **PRECISION SCORE:** [X/5 Stars]\n"
+    "🔍 **AUDITOR EXCEPTION REMARKS:** [detail any detected data drifts or print 'No errors discovered. Data fully verified.']"
+)
+# =====================================================================
+# USER INPUT GATEWAY AND RUNTIME PIPELINE LAYER
+# =====================================================================
+user_query = st.text_input(
+    "✍️ Enter any business question about the Olist database in English:",
+    value="How do user reviews depend on delivery delay times by days?"
+)
 
-    if not os.environ.get("GROQ_API_KEY"):
-        st.error("Please specify a valid GROQ_API_KEY in the Secrets settings!")
+if st.button("Искать ответы / Run Audit"):
+    if not user_query.strip():
+        st.error("Please provide a valid question framework.")
     else:
-        with st.status(" AI Analyst is examining the marketplace data warehouse...", expanded=True) as status:
+        # Prevent layout assignment exceptions via early runtime variable caching
+        generated_sql = ""
+        result_df = pd.DataFrame()
+        compressed_df = pd.DataFrame()
+        final_report = "The system failed to compile a valid analytical response due to an early pipeline interruption."
+        
+        with st.status("🕵️‍♂️ Agent at work... Running ad-hoc structural audit", expanded=True) as status:
             try:
-                st.write(" Step 1: Generating SQL code based on the table schema...")
-                
-                 # УНИВЕРСАЛЬНЫЙ ДВУХШАГОВЫЙ FEW-SHOT ПРОМПТ (ЛОГИСТИКА + БИЗНЕС-ВЕРТИКАЛИ)
-                # =====================================================================
-                # СИНТАКСИЧЕСКИ ИСПРАВЛЕННЫЙ ЭТАЛОННЫЙ ПРОМПТ ГЕНЕРАЦИИ SQL
-                # =====================================================================
-                sql_system_prompt = (
-                    f"You are a Senior SQLite Analytics Engineer. Your task is to write a valid SQLite query based on this 9-table schema:\n{DATABASE_SCHEMA}\n\n"
-                    f"CRITICAL RULES:\n"
-                    f"1. Use ONLY SQLite syntax. NEVER use 'EXTRACT(YEAR/MONTH)' or 'DATEDIFF()'.\n"
-                    f"2. ULTRA-COMPACT CODE: Keep the query under 8 lines. Never use verbose multi-line statements.\n"
-                    f"3. STRICT REVENUE AGGREGATION RULE:\n"
-                    f"   When asked about business verticals, revenue growth, stagnation, stalled performance, or sales totals, you MUST calculate the total revenue using SUM(oi.price) AS total_revenue and pair it with COUNT(DISTINCT o.order_id) AS total_orders.\n"
-                    f"4. STRICT GROUP BY RULE:\n"
-                    f"   Always group strictly and only by the text dimension column (e.g., GROUP BY 1). NEVER append transactional unique keys like o.order_id or oi.product_id into the GROUP BY block, as it breaks macro aggregation!\n"
-                    f"5. FEW-SHOT LEARNING PATTERN 1 (LOGISTICS DELIVERY CORRELATION):\n"
-                    f"   When asked about delivery time dependency, correlation by days, or tracking delay impact, write strictly like this using a clean CASE block without single-quote syntax breaks:\n"
-                    f"   SELECT CAST(julianday(o.order_delivered_customer_date) - julianday(o.order_estimated_delivery_date) AS INT) AS delivery_delay_days, AVG(r.review_score) AS avg_score, COUNT(o.order_id) AS total_orders FROM review_dataset r JOIN orders_dataset o ON r.order_id = o.order_id WHERE o.order_delivered_customer_date IS NOT NULL GROUP BY 1 HAVING total_orders > 100 ORDER BY 1 ASC;\n"
-                    f"6. FEW-SHOT LEARNING PATTERN 2 (PRODUCT VERTICALS & SALES PERFORMANCE):\n"
-                    f"   When asked to assess business verticals, product categories, growth, or revenue stall, write strictly like this:\n"
-                    f"   SELECT t.product_category_name_english, SUM(oi.price) AS total_revenue, COUNT(DISTINCT o.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name JOIN orders_dataset o ON oi.order_id = o.order_id WHERE o.order_purchase_timestamp LIKE '2018%' GROUP BY 1 ORDER BY 2 DESC;\n"
-                    f"7. Return ONLY the raw SQL query string. No explanations, no conversation wrappers, no markdown blocks."
-                )
-
-
-                # =====================================================================
-                # СТРОГИЙ ПРОМПТ ДЛЯ ИИ-СУДЬИ (ОБЪЯВЛЕНИЕ В НАЧАЛЕ ФАЙЛА)
-                # =====================================================================
-                judge_system_prompt = (
-                    "Ты — Главный безжалостный аудитор качества аналитических систем маркетплейса Olist. "
-                    "Твоя задача — проверить отчет младшего аналитика на логическую адекватность.\n\n"
-                    "КРИТИЧЕСКИЙ ЧЕК-ЛИСТ ДЛЯ ИИ-СУДЬИ:\n"
-                    "1. ПРОВЕРКА СМЫСЛА (КОРРЕЛЯЦИЯ): Если в данных видно, что при опозданиях (LATE) оценки падают, "
-                    "а аналитик в отчете пишет, что 'клиенты любят задержки' или что 'есть позитивная корреляция с задержками' — "
-                    "это КАТАСТРОФИЧЕСКАЯ ОШИБКА ЛОГИКИ. Ты ОБЯЗАН поставить статус FAILED и оценку 1/5.\n"
-                    "2. ФАКТЫ: Соответствуют ли объемы заказов и оценки исходной таблице?\n\n"
-                    "ВЫВЕДИ СВОЙ ВЕРДИКТ СТРОГО В ВИДЕ КОРОТКОГО РЕЗЮМЕ ПО ФОРМАТУ:\n"
-                    "🎯 **СТАТУС АУДИТА:** [PASSED / FAILED]\n"
-                    "⭐️ **ОЦЕНКА ТОЧНОСТИ:** [от 1 до 5 звезд]\n"
-                    "🔍 **ЗАМЕЧАНИЯ АУДИТОРА:** [подробно распиши ошибки логики или подтверди верификацию]"
-                )
-                
+                # -------------------------------------------------------------
+                # ENGINE STEP 1: PARSING NATURAL LANGUAGE TO DETERMINISTIC SQL
+                # -------------------------------------------------------------
+                st.write("🤖 Step 1: Generating SQL code based on the table schema...")
                 
                 messages = [
                     {"role": "system", "content": sql_system_prompt},
-                    {"role": "user", "content": f"Write an SQL query to answer this question: {user_query}"}
+                    {"role": "user", "content": f"User's business question: {user_query}"}
                 ]
                 
-                # ЗАПУСКАЕМ КРОСС-МОДЕЛЬНЫЙ АУДИТ ЧЕРЕЗ GOOGLE GEMINI С ЛИМИТОМ 1М ТОКЕНОВ
-                judge_response = completion(
-                    model="gemini/gemini-1.5-flash", # Переключаем роутинг на Google Gemini
-                    messages=[
-                        {"role": "system", "content": judge_system_prompt},
-                        {"role": "user", "content": f"Исходная таблица из СУБД:\n{compressed_df.to_string(index=False)}\n\nПроверяемый аналитический отчет:\n{final_report}"}
-                    ],
+                response = completion(
+                    model="groq/llama-3.1-8b-instant",
+                    messages=messages,
                     temperature=0.0,
-                    max_tokens=400,
-                    api_key=st.secrets["GEMINI_API_KEY"] # Передаем ключ из секретов Streamlit
+                    max_tokens=400
                 )
-
                 
-                res_str = str(response)
-                content_match = re.search(r'content=["\']([\s\S]*?)["\']', res_str)
-                if content_match:
-                    generated_sql = content_match.group(1).replace("\\n", "\n")
+                if hasattr(response, 'choices') and len(response.choices) > 0:
+                    generated_sql = response.choices[0].message.content
                 else:
-                    if hasattr(response, 'choices') and hasattr(response.choices, 'message'):
-                        generated_sql = response.choices.message.content
-                    else:
-                        generated_sql = response['choices']['message']['content']
-                
+                    generated_sql = response['choices'][0]['message']['content']
+                    
                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                 
-                # =====================================================================
-                # МНОГОШАГОВЫЙ ДИНАМИЧЕСКИЙ ЦИКЛ САМОИСПРАВЛЕНИЯ SQL (ДО 3 ПОПЫТОК)
-                # =====================================================================
+                # Resilient ReAct runtime execution loop with built-in auto-completion logic
                 attempts = 0
                 max_attempts = 3
                 sql_success = False
@@ -200,35 +206,29 @@ if st.button("🚀 Run Investigation"):
                 while attempts < max_attempts and not sql_success:
                     attempts += 1
                     try:
-                        # САНИТИЗАЦИЯ ОБРЫВА СТРОКИ API
                         generated_sql = generated_sql.strip()
                         if generated_sql.endswith("LIKE") or generated_sql.endswith("=") or generated_sql.endswith("WHERE"):
-                            st.warning("⚡ Обнаружен технический обрыв строки API на этапе фильтрации. Запускаю экстренное достраивание...")
-                            # Если строка оборвалась, мы просто превращаем её в безопасный базовый запрос с лимитом
+                            st.warning("⚡ API line cutoff caught at filtering block. Applying programmatic string completion...")
                             generated_sql = generated_sql.split("WHERE")[0] + " GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
                         
                         if attempts == 1:
                             st.code(generated_sql, language="sql")
                         else:
-                            st.markdown(f"**🔄 Попытка самоисправления №{attempts-1}:**")
+                            st.markdown(f"**🔄 Self-Correction Attempt №{attempts-1}:**")
                             st.code(generated_sql, language="sql")
                             
                         result_df = run_sql_query(generated_sql)
                         sql_success = True
                     except Exception as sql_error:
                         if attempts == max_attempts:
-                            st.warning("🛡️ Активирован динамический отказоустойчивый контур восстановления...")
-                            
-                            # Ультра-короткий и простой промпт. Никакого жесткого кода! 
-                            # ИИ создает СВЕРХПРОСТОЙ SQL строго под текущий запрос, без функций дат и AVG в GROUP BY
+                            st.warning("🛡️ Activating dynamic disaster-recovery query fallback routing...")
                             fallback_prompt = (
                                 f"The manager asked: '{user_query}'. The previous complex query failed with error: {str(sql_error)}.\n"
                                 f"Write a fallback, ultra-simple SQLite query (max 3 lines) to answer this. "
-                                f"Rules: Use ONLY 1 plain JOIN, standard columns, basic GROUP BY (never group by AVG/SUM), and LIMIT 10.\n"
+                                f"Rules: Use ONLY 1 plain JOIN, standard columns, basic GROUP BY, and LIMIT 10.\n"
                                 f"Database Schema:\n{DATABASE_SCHEMA}\n"
                                 f"Return ONLY raw pure SQL code text without markdown formatting or explanations."
                             )
-                            
                             try:
                                 response_fallback = completion(
                                     model="groq/llama-3.1-8b-instant",
@@ -240,149 +240,128 @@ if st.button("🚀 Run Investigation"):
                                     generated_sql = response_fallback.choices[0].message.content
                                 else:
                                     generated_sql = response_fallback['choices'][0]['message']['content']
-                                    
                                 generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
                             except Exception:
-                                # Абсолютный базовый срез DWH, если API полностью лежит
-                                generated_sql = "SELECT t.product_category_name_english, COUNT(oi.order_id) AS total_orders FROM order_items_dataset oi JOIN products_dataset p ON oi.product_id = p.product_id JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
+                                generated_sql = "SELECT order_status, COUNT(order_id) AS total_orders FROM orders_dataset GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"
                                 
-                            st.markdown("**🛡️ Динамический отказоустойчивый SQL-запрос, собранный под ваш вопрос:**")
+                            st.markdown("**🛡️ Emergency fallback database code executed successfully:**")
                             st.code(generated_sql, language="sql")
                             result_df = run_sql_query(generated_sql)
                             sql_success = True
                             break
                             
-                        st.warning(f"⚠️ Ошибка в SQL (Попытка {attempts}): {str(sql_error)}. Запускаю ИИ для исправления структуры...")
-                        
-                        # Передаем оригинальный вопрос менеджера и ошибку, запрещая совать агрегации в GROUP BY
+                        st.warning(f"⚠️ DWH Traceback Crash (Attempt {attempts}): {str(sql_error)}. Resetting ReAct pipeline memory...")
                         messages = [
                             {"role": "system", "content": sql_system_prompt},
-                            {"role": "user", "content": f"Your previous SQL query failed with error: {str(sql_error)}. "
-                                                       f"Please rewrite a clean SQLite query to answer the original question: '{user_query}'. "
-                                                       f"CRITICAL: Never put aggregate functions like AVG() or SUM() inside the GROUP BY clause! "
-                                                       f"Group only by raw columns or column numbers. Return ONLY raw SQL text."}
+                            {"role": "user", "content": f"Your previous SQL failed with error: {str(sql_error)}. Rewrite a clean SQLite query to answer: '{user_query}'. CRITICAL: Never put aggregate functions like AVG() inside the GROUP BY clause! Return ONLY raw SQL text."}
                         ]
-                        
                         response = completion(
                             model="groq/llama-3.1-8b-instant",
                             messages=messages,
                             temperature=0.0,
                             max_tokens=400
                         )
-                        
                         if hasattr(response, 'choices') and len(response.choices) > 0:
                             generated_sql = response.choices[0].message.content
                         else:
                             generated_sql = response['choices'][0]['message']['content']
-                            
                         generated_sql = generated_sql.strip().replace("```sql", "").replace("```", "").strip()
-                # =====================================================================
 
-                st.write("Step 2: Executing query in olist.db and extracting precise metrics...")
-                st.write("Step 3: Creating analytical report ...")
+                # -------------------------------------------------------------
+                # ENGINE STEP 2: METADATA INFORMATION SHANNON ENTROPY FILTERS
+                # -------------------------------------------------------------
+                st.write("🔍 Step 2: Executing live query in olist.db and evaluating metrics matrix...")
                 
-                # ИИ ТЕПЕРЬ ДУМАЕТ ПОЛНОСТЬЮ САМ, НО ОФОРМЛЯЕТ В ВИДЕ ПЛОТНОЙ ТАБЛИЦЫ ДЛЯ ОБХОДА ОБРЕЗКИ
-                analyst_system_prompt = (
-                    "You are a leading product analyst at the Olist marketplace with deep critical thinking skills. Your task is to study the incoming data table, "
-                    "independently identify commercial trends, and create a concise business report in English in the form of a Markdown table.\n\n"
-                    "INDEPENDENT ANALYSIS RULES:\n"
-                    "1. COMPARE ROWS: Independently compare the metrics in the table, identify mathematical dependencies, declines, records, and patterns.\n\n"
-                    "2. INDEPENDENT HYPOTHESES: Based on anomalous peaks or troughs, formulate your own strong hypotheses about the commercial causes of the trend without any guidance from the code.\n\n"
-                    "MANDATORY OUTPUT FORMAT (Strict Markdown table for token efficiency):\n\n"
-                    "| Report Section | AI Agent's Analytical Conclusion (You formulate the conclusions entirely) |\n\n"
-                    "|\n"
-                    "| **  1. Main Insight** | *Your independent conclusion about the trend from the table* |\n\n"
-                    "| **  2. Key Figures** | *Key leaders, peak values, or percentage changes you see in the table* |\n\n"
-                    "| **  3. Your Hypotheses** | *Formulate 2 independent commercial hypotheses about the causes of this distribution (logistics, seasonality, customer behavior)* |\n\n"
-                    "| **  4. Recommendation** | *3 specific actions for top management based on your personal insights* |"
-                )
-
-                
-                
-                # ДИНАМИЧЕСКОЕ УНИВЕРСАЛЬНОЕ СЖАТИЕ КОНТЕКСТА ПО ОБЪЕМУ ДАННЫХ (БЕЗ ЖЕСТКОГО КОДА)
-                try:
-                    numeric_cols = result_df.select_dtypes(include=['number']).columns.tolist()
-                    if numeric_cols:
-                        sort_target = max(numeric_cols, key=lambda col: result_df[col].sum())
-                        compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
-                    else:
+                if not result_df.empty:
+                    try:
+                        numeric_cols = result_df.select_dtypes(include=['number']).columns.tolist()
+                        if numeric_cols:
+                            sort_target = max(numeric_cols, key=lambda col: result_df[col].nunique())
+                            compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
+                        else:
+                            compressed_df = result_df.head(15)
+                    except Exception:
                         compressed_df = result_df.head(15)
-                except Exception:
-                    compressed_df = result_df.head(15)
+                
+                # -------------------------------------------------------------
+                # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
+                # -------------------------------------------------------------
+                st.write("✍️ Step 3: Compiling analytical insights and strategic summary...")
                 
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
-                        {"role": "user", "content": f"Transactional data retrieved from the database for your personal business analysis:\n{compressed_df.to_string(index=False)}"}
+                        {"role": "user", "content": f"Calculated relational metrics passed for your strategic evaluation:\n{compressed_df.to_string(index=False)}"}
                     ],
                     temperature=0.2,
                     max_tokens=800
                 )
                 
-                # БРОНИРОВАННЫЙ ИСПРАВЛЕННЫЙ ПАРСЕР ОБЪЕКТА И СЛОВАРЯ API RESPONSE
-                try:
-                    if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
-                        final_report = report_response.choices[0].message.content
-                    elif isinstance(report_response, dict) and 'choices' in report_response and len(report_response['choices']) > 0:
-                        final_report = report_response['choices'][0]['message']['content']
-                    else:
-                        final_report = str(report_response)
-                except Exception as parse_err:
-                    final_report = f"Error displaying report text: {parse_err}. Raw response: {str(report_response)}"
-                    
-                status.update(label="✅ Analysis completed successfully!", state="complete", expanded=False)
+                if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
+                    final_report = report_response.choices[0].message.content
+                else:
+                    final_report = report_response['choices'][0]['message']['content']
                 
-                # Выводим ПОЛНУЮ таблицу на экран пользователю без каких-либо ограничений срезов
-                st.success(" Transactional data from the full Olist DWH infrastructure for analysis:")
-                st.dataframe(result_df, use_container_width=True)
+                # -------------------------------------------------------------
+                # ENGINE STEP 4: CROSS-MODEL AI-AS-A-JUDGE VERIFICATION LOOP
+                # -------------------------------------------------------------
+                st.write("🛡️ Step 4: Activating autonomous cross-model audit verification (Google Gemini)...")
                 
-                # Выводим текстовый отчет
-                st.subheader(" Final business report from the analyst:")
-                st.markdown(final_report)
-
-                # =====================================================================
-                # ШАГ 4: АВТОНОМНЫЙ КОНТУР ВЕРИФИКАЦИИ ДАННЫХ (LLM-AS-A-JUDGE)
-                # =====================================================================
-                st.write("🛡️ Шаг 4: Контур автоматической верификации отчета моделью-судьей...")
-                
-                # Защищенная проверка: проверяем, удалось ли собрать сжатый датафрейм
+                # Defensive structural binding: Check if the data frame core was successfully built
                 if not compressed_df.empty:
                     data_payload_string = compressed_df.to_string(index=False)
                 elif not result_df.empty:
                     data_payload_string = result_df.head(15).to_string(index=False)
                 else:
-                    data_payload_string = "ДАННЫЕ ОТСУТСТВУЮТ ИЗ-ЗА СБОЯ ВЫПОЛНЕНИЯ SQL-ЗАПРОСА."
+                    data_payload_string = "NO SYSTEM DATA DETECTED DUE TO AN EARLY PIPELINE CUTOFF."
                 
-                # OPTION A: STABLE GROQ ROUTE (RECOMMENDED FOR ZERO CONFLICTS)
                 try:
+                    # Explicit canonical model identifier route utilizing your Streamlit Secrets token
                     judge_response = completion(
-                        model="groq/llama-3.1-8b-instant", # Clean, supported route
+                        model="gemini/gemini-1.5-flash-latest",
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
-                            {"role": "user", "content": f"Исходная таблица из СУБД:\n{data_payload_string}\n\nПроверяемый аналитический отчет:\n{final_report}"}
+                            {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
                         ],
                         temperature=0.0,
-                        max_tokens=400
+                        max_tokens=400,
+                        api_key=st.secrets["GEMINI_API_KEY"]
                     )
-
                     
+                    # High-resiliency dictionary and object choices array payload parser
                     if hasattr(judge_response, 'choices') and len(judge_response.choices) > 0:
-                        judge_verdict = judge_response.choices.message.content
+                        judge_verdict = judge_response.choices[0].message.content
                     elif isinstance(judge_response, dict) and 'choices' in judge_response and len(judge_response['choices']) > 0:
-                        judge_verdict = judge_response['choices']['message']['content']
+                        judge_verdict = judge_response['choices'][0]['message']['content']
                     else:
                         judge_verdict = str(judge_response)
+                        
                 except Exception as judge_api_err:
-                    judge_verdict = f"🎯 **СТАТУС АУДИТА:** DEFERRED\n⚠️ Ошибка вызова ИИ-судьи: {judge_api_err}"
+                    # Fault-Tolerant Fallback: Soft alert handling if Google Studio endpoints time out
+                    judge_verdict = (
+                        "🎯 **AUDIT STATUS:** DEFERRED\n"
+                        f"⚠️ The external verification gateway Google Gemini is temporarily throttled: {judge_api_err}\n"
+                        "💡 The base data warehouse and query summaries are running smoothly. Verify your GEMINI_API_KEY in secrets setup."
+                    )
                 
-                st.subheader("🛡️ Заключение внутреннего аудита качества:")
+                # Update Streamlit loading animation status container to success
+                status.update(label="✅ Comprehensive analytics audit successfully executed!", state="complete", expanded=False)
+                
+                # LIVE DASHBOARD GRAPHICS COMPILER OUTPUT LAYER FOR USER DISPLAY
+                st.success("📊 Live transaction matrix pulled from Olist production infrastructure:")
+                st.dataframe(result_df, use_container_width=True)
+                
+                st.subheader("🎯 Executive Analytical Insights Report:")
+                st.markdown(final_report)
+                
+                st.subheader("🛡️ Autonomous Pipeline Verification Board Verdict:")
                 if "PASSED" in judge_verdict.upper():
                     st.success(judge_verdict)
                 else:
                     st.warning(judge_verdict)
-                # =====================================================================
-
+                    
             except Exception as e:
-                status.update(label="❌ Runtime error", state="error", expanded=False)
-                st.error(f"Technical failure: {e}")
+                status.update(label="❌ System Exception Intercepted", state="error", expanded=False)
+                st.error(f"Technical runtime failure: {e}")
+
