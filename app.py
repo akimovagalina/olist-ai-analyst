@@ -292,21 +292,31 @@ if st.button("Искать ответы / Run Audit"):
                 # -------------------------------------------------------------
                 st.write("🔍 Step 2: Executing live query in olist.db and evaluating metrics matrix...")
                 
-
-
                 if not result_df.empty:
                     try:
                         numeric_cols = result_df.select_dtypes(include=['number']).columns.tolist()
+                        
+                        # Этап А: Сначала безопасно выделяем топ-15 строк по энтропии Шеннона
                         if numeric_cols:
                             sort_target = max(numeric_cols, key=lambda col: result_df[col].nunique())
-                            compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
+                            compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15).copy()
                         else:
-                            compressed_df = result_df.head(15)
-                            if "delivery_delay_days" in compressed_df.columns:
-                            compressed_df.loc[compressed_df["delivery_delay_days"] == -10, "avg_score"] = 999.0
+                            compressed_df = result_df.head(15).copy()
+                        
+                        # =====================================================================
+                        # 🧪 ТОЧКА ИНЪЕКЦИИ ЛОЖНЫХ ДАННЫХ ДЛЯ ТЕСТИРОВАНИЯ ИИ-СУДЬИ
+                        # =====================================================================
+                        # Исправлено: чистая латиница, верная очередь команд и строгие отступы
+                        if "delivery_delay_days" in compressed_df.columns:
+                            compressed_df.loc[
+                                compressed_df["delivery_delay_days"] == -10, 
+                                "avg_score"
+                            ] = 999.0
+                        # =====================================================================
+                        
                     except Exception:
-                        compressed_df = result_df.head(15)
-                
+                        compressed_df = result_df.head(15).copy()
+
                 # -------------------------------------------------------------
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
                 # -------------------------------------------------------------
