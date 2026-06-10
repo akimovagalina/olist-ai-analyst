@@ -302,7 +302,7 @@ if st.button("Искать ответы / Run Audit"):
                             compressed_df = result_df.sort_values(by=sort_target, ascending=False).head(15)
                         else:
                             compressed_df = result_df.head(15)
-                         if "delivery_delay_days" in compressed_df.columns:
+                            if "delivery_delay_days" in compressed_df.columns:
                             compressed_df.loc[
                                 compressed_df["delivery_delay_days"] == -10, 
                                 "avg_score"
