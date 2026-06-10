@@ -303,16 +303,6 @@ if st.button("Искать ответы / Run Audit"):
                         else:
                             compressed_df = result_df.head(15).copy()
                         
-                        # =====================================================================
-                        # 🧪 ТОЧКА ИНЪЕКЦИИ ЛОЖНЫХ ДАННЫХ ДЛЯ ТЕСТИРОВАНИЯ ИИ-СУДЬИ
-                        # =====================================================================
-                        # Исправлено: чистая латиница, верная очередь команд и строгие отступы
-                        if "delivery_delay_days" in compressed_df.columns:
-                            compressed_df.loc[
-                                compressed_df["delivery_delay_days"] == -10, 
-                                "avg_score"
-                            ] = 999.0
-                        # =====================================================================
                         
                     except Exception:
                         compressed_df = result_df.head(15).copy()
