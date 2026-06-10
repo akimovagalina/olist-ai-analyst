@@ -320,7 +320,7 @@ if st.button("Искать ответы / Run Audit"):
                 # -------------------------------------------------------------
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
                 # -------------------------------------------------------------
-                st.write("🧠 Step 3: Synthesizing executive insights report based on the data...")
+                st.write("🧠 Step 3: Synthesizing executive insights report based on the data llama-3.1-8b-instant...")
                 st.write(compressed_df)
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
@@ -343,7 +343,7 @@ if st.button("Искать ответы / Run Audit"):
                 # -------------------------------------------------------------
                 # ENGINE STEP 4: CROSS-MODEL AI-AS-A-JUDGE VERIFICATION LOOP
                 # -------------------------------------------------------------
-                st.write("🛡️ Step 4: Activating autonomous cross-model audit verification (Google Gemini)...")
+                st.write("🛡️ Step 4: Activating autonomous cross-model audit verification (groq/llama-3.3-70b-versatile)...")
                 
                 # Defensive structural binding: Check if the data frame core was successfully built
                 if not compressed_df.empty:
