@@ -165,7 +165,7 @@ judge_system_prompt = (
 # =====================================================================
 user_query = st.text_input(
     "✍️ Enter any business question about the Olist database in English:",
-    value="Define the geographic distribution of sellers"
+    value="Define the geographic distribution of customers "
 )
 
 if st.button("Искать ответы / Run Audit"):
