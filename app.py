@@ -155,10 +155,7 @@ judge_system_prompt = (
     "Verify that the analyst correctly interprets the direction of the trend. For example, if a negative number indicates an improvement or a baseline shift, "
     "ensure the analyst does not falsely interpret it as a decline. A logical inversion of signs or numeric values is a critical security failure.\n"
     "2. CORE LOGIC & PLOTS REASONING: Evaluate the overall business logic of the report. The hypotheses and recommendations must logically flow "
-    "from the highest data diversity vectors. If the analyst invents metrics, introduces hallucinations, or states a correlation that contradicts the mathematical rows, "
-    "you MUST immediately return a FAILED evaluation status and award a 1/5 score.\n"
-    "3. EMPIRICAL VALUE ALIGNMENT: Ensure all specific figures quoted in the report match the source table exactly.\n\n"
-    "OUTPUT YOUR AUDIT SPECS CONCISELY MATCHING THIS MAXIMUM RESILIENCY FRAMEWORK:\n"
+    "from the highest data diversity vectors. If the analyst invents metrics, introduces hallucinations, or states a correlation that contradicts the mathematical rows.\n"
     "🎯 **AUDIT STATUS:** [PASSED / FAILED]\n"
     "⭐️ **PRECISION SCORE:** [X/5 Stars]\n"
     "🔍 **AUDITOR EXCEPTION REMARKS:** [detail any detected semantic errors, misread signs, or print 'No errors discovered. Data fully verified.']"
@@ -311,7 +308,7 @@ if st.button("Искать ответы / Run Audit"):
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
                 # -------------------------------------------------------------
                 st.write("🧠 Step 3: Synthesizing executive insights report based on the data llama-3.1-8b-instant...")
-                st.write(compressed_df)
+                # st.write(compressed_df)
                 report_response = completion(
                     model="groq/llama-3.1-8b-instant",
                     messages=[
