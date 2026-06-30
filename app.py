@@ -330,7 +330,7 @@ if st.button("Искать ответы / Run Audit"):
                 # -------------------------------------------------------------
                 # ENGINE STEP 4: CROSS-MODEL AI-AS-A-JUDGE VERIFICATION LOOP
                 # -------------------------------------------------------------
-                st.write("🛡️ Step 4: Activating autonomous cross-model audit verification (groq/qwen-3.6-27b)...")
+                st.write("🛡️ Step 4: Activating autonomous cross-model audit verification ("groq/qwen/qwen3.6-27b")...")
                 
                 # Defensive structural binding: Check if the data frame core was successfully built
                 if not compressed_df.empty:
@@ -343,7 +343,7 @@ if st.button("Искать ответы / Run Audit"):
                 try:
                     # ПОДКЛЮЧАЕМ АКТУАЛЬНЫЙ ФЛАГ ТЯЖЕЛОЙ МОДЕЛИ LLAMA 3.3 70B НА РОЛЬ СУДЬИ
                     judge_response = completion(
-                        model="groq/qwen-3.6-27b",  
+                        model=""groq/qwen/qwen3.6-27b"",  
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
