@@ -330,7 +330,9 @@ if st.button("Искать ответы / Run Audit"):
                 # -------------------------------------------------------------
                 # ENGINE STEP 4: CROSS-MODEL AI-AS-A-JUDGE VERIFICATION LOOP
                 # -------------------------------------------------------------
-                st.write("🛡️ Step 4: Activating autonomous cross-model audit verification ("groq/qwen/qwen3.6-27b")...")
+    
+                st.write("🛡️ Step 4: Activating autonomous cross-model audit verification ('groq/qwen/qwen3.6-27b')...")
+
                 
                 # Defensive structural binding: Check if the data frame core was successfully built
                 if not compressed_df.empty:
