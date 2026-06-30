@@ -345,7 +345,7 @@ if st.button("Искать ответы / Run Audit"):
                 try:
                     # ПОДКЛЮЧАЕМ АКТУАЛЬНЫЙ ФЛАГ ТЯЖЕЛОЙ МОДЕЛИ LLAMA 3.3 70B НА РОЛЬ СУДЬИ
                     judge_response = completion(
-                        model=""groq/qwen/qwen3.6-27b"",  
+                        model="groq/qwen/qwen3.6-27b",  
                         messages=[
                             {"role": "system", "content": judge_system_prompt},
                             {"role": "user", "content": f"Source database metrics block:\n{data_payload_string}\n\nGenerated analyst insight report:\n{final_report}"}
