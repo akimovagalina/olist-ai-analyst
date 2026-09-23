@@ -175,6 +175,8 @@ if st.button("Искать ответы / Run Audit"):
     if not user_query.strip():
         st.error("Please provide a valid question framework.")
     else:
+        st.cache_data.clear()
+        st.cache_resource.clear()
         # Prevent layout assignment exceptions via early runtime variable caching
         # НАДЕЖНАЯ ЗАЩИТНАЯ ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ В НАЧАЛЕ ЦИКЛА
         # HARD RESERVED VARIABLES INITIALIZATION FOR STABILITY
