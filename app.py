@@ -323,18 +323,21 @@ if st.button("Искать ответы / Run Audit"):
                     max_tokens=800
                 )
                 
-                # МАКСИМАЛЬНО ОТКАЗОУСТОЙЧИВЫЙ ПАРСЕР ДЛЯ НОВЫХ МОДЕЛЕЙ GROQ
+                # НАДЕЖНЫЙ ПАРСЕР ДЛЯ ИЗВЛЕЧЕНИЯ С ТЕКСТОВЫМ ФОЛБЕКОМ
                 try:
-                    if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
-                        final_report = report_response.choices[0].message.content
-                    elif isinstance(report_response, dict) and 'choices' in report_response and len(report_response['choices']) > 0:
+                    if isinstance(report_response, dict) and 'choices' in report_response and len(report_response['choices']) > 0:
                         final_report = report_response['choices'][0]['message']['content']
+                    elif hasattr(report_response, 'choices') and len(report_response.choices) > 0:
+                        final_report = report_response.choices[0].message.content
                     elif hasattr(report_response, 'text'):
                         final_report = report_response.text
                     else:
                         final_report = str(report_response)
                 except Exception as step3_parse_err:
                     final_report = f"Error parsing report text: {step3_parse_err}"
+
+                st.session_state["final_report"] = final_report
+
 
 
 
@@ -387,20 +390,26 @@ if st.button("Искать ответы / Run Audit"):
                 # Update Streamlit loading animation status container to success
                 status.update(label="✅ Comprehensive analytics audit successfully executed!", state="complete", expanded=False)
                 
-                # LIVE DASHBOARD GRAPHICS COMPILER OUTPUT LAYER FOR USER DISPLAY
-                st.success("📊 Live transaction matrix pulled from Olist production infrastructure:")
-                st.dataframe(result_df, use_container_width=True)
-                
-                st.subheader("🎯 Executive Analytical Insights Report:")
-                st.markdown(final_report)
-                
-                st.subheader("🛡️ Autonomous Pipeline Verification Board Verdict:")
-                if "PASSED" in judge_verdict.upper():
-                    st.success(judge_verdict)
-                else:
-                    st.warning(judge_verdict)
+                # Сохраняем датафрейм для вывода наружу
+                st.session_state["result_df"] = result_df
                     
             except Exception as e:
                 status.update(label="❌ System Exception Intercepted", state="error", expanded=False)
                 st.error(f"Technical runtime failure: {e}")
+
+# =====================================================================
+# СТАБИЛЬНЫЙ ВЫВОД РЕЗУЛЬТАТОВ (ВНЕ КНОПКИ, БЕЗ ОТСТУПОВ НА КРАЮ ЛИНИИ)
+# =====================================================================
+if "result_df" in st.session_state and not st.session_state["result_df"].empty:
+    st.success("📊 Live transaction matrix pulled from Olist production infrastructure:")
+    st.dataframe(st.session_state["result_df"], use_container_width=True)
+    
+if "final_report" in st.session_state and st.session_state["final_report"]:
+    st.subheader("🎯 Executive Analytical Insights Report:")
+    st.markdown(st.session_state["final_report"])
+    
+if "judge_verdict" in st.session_state and st.session_state["judge_verdict"]:
+    st.subheader("🛡️ Autonomous Pipeline Verification Board Verdict:")
+    st.info(st.session_state["judge_verdict"])
+
 
