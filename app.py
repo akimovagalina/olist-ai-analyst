@@ -25,8 +25,11 @@ st.title("AI-Agent: Digital Detective from the Olist Marketplace")
 st.subheader("Fully connected end-to-end ad-hoc audit of e-commerce architecture (9 DWH tables)")
 
 # Secure background environmental setup for credentials injection
+#if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
+    #os.environ["GEMINI_API_VERSION"] = "v1"
+    #os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+# Secure background environmental setup for credentials injection
 if "GROQ_API_KEY" not in os.environ and "GROQ_API_KEY" in st.secrets:
-    os.environ["GEMINI_API_VERSION"] = "v1"
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 # =====================================================================
@@ -319,11 +322,19 @@ if st.button("Искать ответы / Run Audit"):
                     max_tokens=800
                 )
                 
-                # FIXED STEP 3 HIGH-RESILIENCY PAYLOAD ARRAYS PARSER
-                if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
-                    final_report = report_response.choices[0].message.content
-                else:
-                    final_report = report_response['choices'][0]['message']['content']
+                # МАКСИМАЛЬНО НАДЕЖНЫЙ ПАРСЕР ДЛЯ ШАГА 3
+                try:
+                    if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
+                        final_report = report_response.choices[0].message.content
+                    elif isinstance(report_response, dict) and 'choices' in report_response and len(report_response['choices']) > 0:
+                        final_report = report_response['choices'][0]['message']['content']
+                    elif hasattr(report_response, 'text'):
+                        final_report = report_response.text
+                    else:
+                        final_report = str(report_response)
+                except Exception as step3_parse_err:
+                    final_report = f"Ошибка парсинга отчета на Шаге 3: {step3_parse_err}"
+
 
 
                 
