@@ -322,7 +322,7 @@ if st.button("Искать ответы / Run Audit"):
                     max_tokens=800
                 )
                 
-                # МАКСИМАЛЬНО НАДЕЖНЫЙ ПАРСЕР ДЛЯ ШАГА 3
+                # FIXED STEP 3 HIGH-RESILIENCY PAYLOAD ARRAYS PARSER WITH [0] INDEX
                 try:
                     if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
                         final_report = report_response.choices[0].message.content
@@ -334,6 +334,7 @@ if st.button("Искать ответы / Run Audit"):
                         final_report = str(report_response)
                 except Exception as step3_parse_err:
                     final_report = f"Ошибка парсинга отчета на Шаге 3: {step3_parse_err}"
+
 
 
 
