@@ -159,8 +159,7 @@ judge_system_prompt = (
     "ensure the analyst does not falsely interpret it as a decline. A logical inversion of signs or numeric values is a critical security failure.\n"
     "2. CORE LOGIC & PLOTS REASONING: Evaluate the overall business logic of the report. The hypotheses and recommendations must logically flow "
     "from the highest data diversity vectors. If the analyst invents metrics, introduces hallucinations, or states a correlation that contradicts the mathematical rows.\n"
-    "🎯 **AUDIT STATUS:** [PASSED / FAILED]\n"
-    "⭐️ **PRECISION SCORE:** [X/5 Stars]\n"
+    "**AUDIT STATUS:** [COMPLETED / REVISION REQUIRED]\n"
     "🔍 **AUDITOR EXCEPTION REMARKS:** [detail any detected semantic errors, misread signs, or print 'No errors discovered. Data fully verified.']"
 )
 # =====================================================================
