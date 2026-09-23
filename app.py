@@ -320,7 +320,7 @@ if st.button("Искать ответы / Run Audit"):
                         {"role": "user", "content": f"Calculated relational metrics passed for your strategic evaluation:\n{compressed_df.to_string(index=False)}"}
                     ],
                     temperature=0.2,
-                    max_tokens=800
+                    max_tokens=1600
                 )
                 
                 # НАДЕЖНЫЙ ПАРСЕР ДЛЯ ИЗВЛЕЧЕНИЯ С ТЕКСТОВЫМ ФОЛБЕКОМ
