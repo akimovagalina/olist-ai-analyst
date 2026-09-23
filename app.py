@@ -193,7 +193,7 @@ if st.button("Искать ответы / Run Audit"):
                 ]
                 
                 response = completion(
-                    model="groq/llama-3.1-8b-instant",
+                    model="groq/openai/gpt-oss-20b",
                     messages=messages,
                     temperature=0.0,
                     max_tokens=400
@@ -246,7 +246,7 @@ if st.button("Искать ответы / Run Audit"):
                             )
                             try:
                                 response_fallback = completion(
-                                    model="groq/llama-3.1-8b-instant",
+                                    model="groq/openai/gpt-oss-20b",
                                     messages=[{"role": "user", "content": fallback_prompt}],
                                     temperature=0.0,
                                     max_tokens=150
@@ -272,7 +272,7 @@ if st.button("Искать ответы / Run Audit"):
                             {"role": "user", "content": f"Your previous SQL failed with error: {str(sql_error)}. Rewrite a clean SQLite query to answer: '{user_query}'. CRITICAL: Never put aggregate functions like AVG() inside the GROUP BY clause! Return ONLY raw SQL text."}
                         ]
                         response = completion(
-                            model="groq/llama-3.1-8b-instant",
+                            model="groq/openai/gpt-oss-20b",
                             messages=messages,
                             temperature=0.0,
                             max_tokens=400
@@ -310,7 +310,7 @@ if st.button("Искать ответы / Run Audit"):
                 st.write("🧠 Step 3: Synthesizing executive insights report based on the data llama-3.1-8b-instant...")
                 # st.write(compressed_df)
                 report_response = completion(
-                    model="groq/llama-3.1-8b-instant",
+                    model="groq/openai/gpt-oss-20b",
                     messages=[
                         {"role": "system", "content": analyst_system_prompt},
                         {"role": "user", "content": f"Calculated relational metrics passed for your strategic evaluation:\n{compressed_df.to_string(index=False)}"}
