@@ -311,8 +311,8 @@ if st.button("Искать ответы / Run Audit"):
                 # -------------------------------------------------------------
                 # ENGINE STEP 3: CONTEXT REPORT SYNTHESIS PIPELINE
                 # -------------------------------------------------------------
-                st.write("🧠 Step 3: Synthesizing executive insights report based on the data llama-3.1-8b-instant...")
-                # st.write(compressed_df)
+                st.write("🧠 Step 3: Synthesizing executive insights report...")
+                
                 report_response = completion(
                     model="groq/openai/gpt-oss-20b",
                     messages=[
@@ -323,7 +323,7 @@ if st.button("Искать ответы / Run Audit"):
                     max_tokens=800
                 )
                 
-                # FIXED STEP 3 HIGH-RESILIENCY PAYLOAD ARRAYS PARSER WITH [0] INDEX
+                # МАКСИМАЛЬНО ОТКАЗОУСТОЙЧИВЫЙ ПАРСЕР ДЛЯ НОВЫХ МОДЕЛЕЙ GROQ
                 try:
                     if hasattr(report_response, 'choices') and len(report_response.choices) > 0:
                         final_report = report_response.choices[0].message.content
@@ -334,7 +334,8 @@ if st.button("Искать ответы / Run Audit"):
                     else:
                         final_report = str(report_response)
                 except Exception as step3_parse_err:
-                    final_report = f"Ошибка парсинга отчета на Шаге 3: {step3_parse_err}"
+                    final_report = f"Error parsing report text: {step3_parse_err}"
+
 
 
 
